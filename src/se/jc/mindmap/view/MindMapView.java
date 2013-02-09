@@ -4,6 +4,7 @@
  */
 package se.jc.mindmap.view;
 
+import se.jc.library.graphics.ZoomView;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -18,7 +19,7 @@ import se.jc.mindmap.view.component.Bullet;
  *
  * @author Ruffy
  */
-public class MindMapView extends View {
+public class MindMapView extends ZoomView {
 
     private MindMapItem _mindMapRoot;
     private Bullet _bulletRoot;
@@ -26,18 +27,7 @@ public class MindMapView extends View {
     public MindMapView(Context context, AttributeSet attrs) {
         super(context, attrs);
 
-        _mindMapRoot = new MindMapItem("Main",
-                new MindMapItem("1",
-                new MindMapItem("1.1"),
-                new MindMapItem("1.2")),
-                new MindMapItem("WTF",
-                new MindMapItem("This is pretty bloody genious"),
-                new MindMapItem("Yeah, damn right!")),
-                new MindMapItem("2",
-                new MindMapItem("2.1"),
-                new MindMapItem("2.2")));
-
-        
+        generateMap();
         setBulletRoot(new Bullet(_mindMapRoot));
     }
 
@@ -48,23 +38,15 @@ public class MindMapView extends View {
     
     public MindMapView(Context context) {
         super(context);
-
-        _mindMapRoot = new MindMapItem("Main",
-                new MindMapItem("1",
-                new MindMapItem("1.1"),
-                new MindMapItem("1.2")),
-                new MindMapItem("WTF",
-                new MindMapItem("This is pretty bloody genious"),
-                new MindMapItem("Yeah, damn right!")),
-                new MindMapItem("2",
-                new MindMapItem("2.1"),
-                new MindMapItem("2.2")));
+        generateMap();
 
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
 
+        prepareCanvasZoom(canvas);
+        
         int width = getWidth();
         int height = getHeight();
         Rect itemBounds = _bulletRoot.getItemBounds();
@@ -94,5 +76,18 @@ public class MindMapView extends View {
      */
     protected void setBulletRoot(Bullet bulletRoot) {
         this._bulletRoot = bulletRoot;
+    }
+
+    private void generateMap() {
+        _mindMapRoot = new MindMapItem("Main",
+                new MindMapItem("1",
+                new MindMapItem("1.1"),
+                new MindMapItem("1.2")),
+                new MindMapItem("WTF",
+                new MindMapItem("This is pretty bloody genious"),
+                new MindMapItem("Yeah, damn right!")),
+                new MindMapItem("2",
+                new MindMapItem("2.1"),
+                new MindMapItem("2.2")));
     }
 }
