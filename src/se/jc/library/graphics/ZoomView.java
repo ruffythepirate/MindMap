@@ -20,9 +20,9 @@ import se.jc.library.graphics.CanvasCamera;
  */
 public class ZoomView extends View {
 
-    private static int NONE = 0;
-    private static int DRAG = 1;
-    private static int ZOOM = 2;
+    protected static int ACTION_MODE_NONE = 0;
+    protected static int ACTION_MODE_DRAG = 1;
+    protected static int ACTION_MODE_ZOOM = 2;
     private static float MIN_ZOOM = 0.25f;
     private static float MAX_ZOOM = 4f;
     private ScaleGestureDetector _zoomDetector;
@@ -55,26 +55,26 @@ public class ZoomView extends View {
             case MotionEvent.ACTION_DOWN:
                 setCurrentDragStart(event.getX(), event.getY());
                 initializeCameraDragStartTranslation();
-                setActionMode(DRAG);
+                setActionMode(ACTION_MODE_DRAG);
                 break;
 
             case MotionEvent.ACTION_MOVE:
-                if (getActionMode() == DRAG) {
+                if (getActionMode() == ACTION_MODE_DRAG) {
                     updateCameraTranslation(event);
                     invalidate();
                 }
                 break;
 
             case MotionEvent.ACTION_POINTER_DOWN:
-                setActionMode(ZOOM);
+                setActionMode(ACTION_MODE_ZOOM);
                 break;
 
             case MotionEvent.ACTION_UP:
-                setActionMode(NONE);
+                setActionMode(ACTION_MODE_NONE);
                 break;
 
             case MotionEvent.ACTION_POINTER_UP:
-                setActionMode(DRAG);
+                setActionMode(ACTION_MODE_NONE);
                 break;
         }
 
@@ -90,7 +90,7 @@ public class ZoomView extends View {
     private void initializeZoomComponents() {
         _zoomDetector = new ScaleGestureDetector(getContext(), new ScaleListener());
         setCanvasCamera(new CanvasCamera());
-        getCanvasCamera().setScale(2.f);
+        getCanvasCamera().setScale(1.f);
         setCurrentDragStart(new PointF());
     }
 
@@ -105,7 +105,13 @@ public class ZoomView extends View {
     protected PointF getCurrentDragStart() {
         return _currentDragStart;
     }
-
+    
+    public PointF getAsAbsoluteCoordinate(float x, float y)
+    {
+        CanvasCamera camera = getCanvasCamera();
+        return camera.getAsUntransformedCoordinates(x, y);
+    }
+    
     protected void setCurrentDragStart(PointF currentDragStart) {
         this._currentDragStart = currentDragStart;
     }

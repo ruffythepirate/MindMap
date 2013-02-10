@@ -16,27 +16,35 @@ public class CanvasCamera {
     private float _scale;
     private PointF _translation;
     private Matrix _transformMatrix;
+    private Matrix _inverseMatrix;
+    private boolean _inverseMatrixShouldBeRecalculated = true;
 
     public CanvasCamera() {
         setTransformMatrix(new Matrix());
 
     }
 
-    /**
-     * @return the _scale
-     */
     public float getScale() {
         return _scale;
     }
 
-    /**
-     * @param scale the _scale to set
-     */
     public void setScale(float scale) {
         this._scale = scale;
         updateTransformMatrix();
     }
-    
+
+    public PointF getAsUntransformedCoordinates(float x, float y)
+    {
+//        Matrix transformMatrix = getTransformMatrix();
+//        float[] coordinateVector = {x, y};
+//        Matrix inverseMatrix = getInverseMatrix();
+//        inverseMatrix.mapPoints(coordinateVector);
+//        return new PointF(coordinateVector[0], coordinateVector[1]);
+        float transformedX = x / _scale - _translation.x;
+        float transformedY = y / _scale - _translation.y;
+        return new PointF(transformedX, transformedY);
+    }
+
     public void setScaleAndRelativeTranslate(float scale, float relativeTranslateX, float relativeTranslateY)
     {
         _scale = scale;
@@ -50,9 +58,6 @@ public class CanvasCamera {
         setTranslation(currentTranslation.x + relativeTranslateX, currentTranslation.y + relativeTranslateY);
     }
     
-    /**
-     * @return the _translation
-     */
     public PointF getTranslation() {
         if (_translation == null) {
             _translation = new PointF();
@@ -65,9 +70,6 @@ public class CanvasCamera {
         return new PointF(currentTranslation.x, currentTranslation.y);
     }
 
-    /**
-     * @param translation the _translation to set
-     */
     public void setTranslation(PointF translation) {
         this._translation = translation;
 
@@ -92,17 +94,29 @@ public class CanvasCamera {
         updateTransformMatrix();
     }
 
-    /**
-     * @return the _transformMatrix
-     */
     public Matrix getTransformMatrix() {
         return _transformMatrix;
     }
 
-    /**
-     * @param transformMatrix the _transformMatrix to set
-     */
     public void setTransformMatrix(Matrix transformMatrix) {
         this._transformMatrix = transformMatrix;
+    }
+
+    protected Matrix getInverseMatrix() {
+        if(_inverseMatrix == null)
+        {
+            _inverseMatrixShouldBeRecalculated = true;
+            _inverseMatrix = new Matrix();
+        }
+        if(_inverseMatrixShouldBeRecalculated)
+        {
+            Matrix transformMatrix = getTransformMatrix();
+            if(!transformMatrix.invert(_inverseMatrix))
+            {
+                _inverseMatrix.reset();
+            }
+            _inverseMatrixShouldBeRecalculated = false;
+        }
+        return _inverseMatrix;
     }
 }

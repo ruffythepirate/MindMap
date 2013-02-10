@@ -8,6 +8,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Point;
+import android.graphics.PointF;
 import android.graphics.Rect;
 import java.util.ArrayList;
 import java.util.Hashtable;
@@ -25,11 +26,15 @@ public class Bullet {
     public static final Integer AttributeDefaultPadding = 5;
     public static final Integer AttributeDefaultExternalPadding = 10;
     public static final Integer AttributeDefaultForeColor = Color.BLUE;
+    public static final Integer AttributeDefaultBackgroundColor = Color.GRAY;
+    public static final Integer AttributeDefaultBackgroundHighlightedColor = Color.MAGENTA;
     //Attribute Keys
     //Color Keys
     public static final String AttributeForeColor = "color.fore";
     public static final String AttributeForeColorBorder = "color.fore.border";
     public static final String AttributeForeColorText = "color.fore.text";
+    public static final String AttributeBackgroundColor = "color.back";
+    public static final String AttributeBackgroundColorHighlighted = "color.back.highlighted";
     //Padding Keys
     public static final String AttributePadding = "padding";
     public static final String AttributePaddingLeft = "padding.left";
@@ -40,7 +45,7 @@ public class Bullet {
     public static final String AttributeExternalPaddingWidth = "externalpadding.width";
     public static final String AttributeExternalPadding = "externalpadding";
     //Other values Mapping.
-    List<Bullet> _children;
+    private List<Bullet> _children;
     private Bullet _parent;
     //Different rendering properties.
     private Map<String, Object> _displayAttributes;
@@ -51,6 +56,10 @@ public class Bullet {
     private Point _position;
     private Paint _borderPaint;
     private Paint _textPaint;
+    private Paint _backgroundPaint;
+    private Paint _backgroundHighlightedPaint;
+    //Bullet properties
+    private boolean _selected;
 
     public Bullet(MindMapItem contentToWrap) {
         _displayAttributes = new Hashtable<String, Object>();
@@ -72,10 +81,10 @@ public class Bullet {
                 renderChildrenCenter(canvasToRenderOn);
                 break;
             case ToTheLeft:
-                renderChildrenToLeft(canvasToRenderOn, 0, _children.size());
+                renderChildrenToLeft(canvasToRenderOn, 0, getChildren().size());
                 break;
             case ToTheRight:
-                renderChildrenToRight(canvasToRenderOn, 0, _children.size());
+                renderChildrenToRight(canvasToRenderOn, 0, getChildren().size());
                 break;
         }
     }
@@ -83,14 +92,14 @@ public class Bullet {
     public void renderChildrenCenter(Canvas canvasToRenderOn) {
         int itemsToTheRight = getOptimalNumberOfChildrenToRight();
         renderChildrenToRight(canvasToRenderOn, 0, itemsToTheRight);
-        renderChildrenToLeft(canvasToRenderOn, itemsToTheRight, _children.size());
+        renderChildrenToLeft(canvasToRenderOn, itemsToTheRight, getChildren().size());
     }
 
     private int getChildItemsSize(int childStartIndex, int childStopIndex) {
         int itemExternalPadding = getRenderAttribute(AttributeExternalPaddingHeight, AttributeDefaultExternalPadding);
         int totalHeight = -itemExternalPadding;
         for (int i = childStartIndex; i < childStopIndex; i++) {
-            totalHeight += _children.get(i).getDesiredHeightWithChildren();
+            totalHeight += getChildren().get(i).getDesiredHeightWithChildren();
             totalHeight += itemExternalPadding;
         }
         return totalHeight;
@@ -109,7 +118,7 @@ public class Bullet {
 
         //render items 
         for (int i = startIndex; i < stopIndex; i++) {
-            Bullet currentBullet = _children.get(i);
+            Bullet currentBullet = getChildren().get(i);
             int bulletDesiredHeight = currentBullet.getDesiredHeightWithChildren();
             int y = nextItemTop - bulletDesiredHeight / 2;
             currentBullet.setPosition(endX - currentBullet.getItemBounds().width(), y);
@@ -131,7 +140,7 @@ public class Bullet {
 
         //render items 
         for (int i = startIndex; i < stopIndex; i++) {
-            Bullet currentBullet = _children.get(i);
+            Bullet currentBullet = getChildren().get(i);
             int bulletDesiredHeight = currentBullet.getDesiredHeightWithChildren();
             int y = nextItemTop - bulletDesiredHeight / 2;
             currentBullet.setPosition(x, y);
@@ -141,8 +150,22 @@ public class Bullet {
     }
 
     public void renderThisItem(Canvas canvasToRenderOn) {
+        renderBackground(canvasToRenderOn);
         renderBorder(canvasToRenderOn);
         renderText(canvasToRenderOn);
+    }
+
+    private void renderBackground(Canvas canvasToRenderOn) {
+        Paint backgroundPaint = isSelected() ? getBackgroundHighlightedPaint() : getBackgroundPaint();
+        Rect itemBounds = getItemBounds();
+        Point position = getPosition();
+
+
+        canvasToRenderOn.drawRect(position.x,
+                position.y,
+                position.x + itemBounds.width(),
+                position.y + itemBounds.height(),
+                backgroundPaint);
     }
 
     private void renderBorder(Canvas canvasToRenderOn) {
@@ -151,17 +174,17 @@ public class Bullet {
         Point position = getPosition();
 
         canvasToRenderOn.drawRect(position.x,
-                position.y - itemBounds.height() / 2,
+                position.y,
                 position.x + itemBounds.width(),
-                position.y + itemBounds.height() / 2,
+                position.y + itemBounds.height(),
                 borderPaint);
     }
 
     private void populateChildrenEntities() {
-        _children.clear();
+        getChildren().clear();
         for (MindMapItem childItem : _contentToWrap.getChildren()) {
             Bullet childBullet = new Bullet(childItem);
-            _children.add(childBullet);
+            getChildren().add(childBullet);
             childBullet.setParent(this);
         }
     }
@@ -172,10 +195,11 @@ public class Bullet {
         Point position = getPosition();
         int leftPadding = getLeftPadding();
         int bottomPadding = getBottomPadding();
+        Rect itemBounds = getItemBounds();
 
         canvasToRenderOn.drawText(textToRender,
                 position.x + leftPadding,
-                position.y + bottomPadding,
+                position.y + bottomPadding + itemBounds.height() / 2,
                 textPaint);
     }
 
@@ -213,7 +237,7 @@ public class Bullet {
         int betweenChildrenPadding = getRenderAttribute(AttributeExternalPaddingHeight, AttributeDefaultExternalPadding);
 
         int childrenSize = -betweenChildrenPadding;
-        for (Bullet childBullet : _children) {
+        for (Bullet childBullet : getChildren()) {
             childrenSize += childBullet.getDesiredHeightWithChildren();
             childrenSize += betweenChildrenPadding;
         }
@@ -264,6 +288,15 @@ public class Bullet {
         return "";
     }
 
+    public boolean containsPoint(PointF point) {
+        Point position = getPosition();
+        int relativeX = (int) point.x - position.x;
+        int relativeY = (int) point.y - position.y;
+
+        Rect itemBounds = getItemBounds();
+        return itemBounds.contains(relativeX, relativeY);
+    }
+
     /**
      * @return the _position
      */
@@ -304,6 +337,7 @@ public class Bullet {
             int textColor = getRenderAttribute(AttributeForeColorText, AttributeDefaultForeColor);
             _textPaint.setColor(textColor);
             _textPaint.setStyle(Paint.Style.STROKE);
+            _textPaint.setAntiAlias(true);
         }
         return _textPaint;
     }
@@ -350,7 +384,7 @@ public class Bullet {
         int accumulatedHeight = 0;
         int itemsToTheRight = 0;
         int closestMatch = Integer.MAX_VALUE;
-        for (Bullet child : _children) {
+        for (Bullet child : getChildren()) {
             accumulatedHeight += child.getDesiredHeightWithChildren();
             if (Math.abs(accumulatedHeight - desiredHeightOnEachSide) <= closestMatch) {
                 itemsToTheRight++;
@@ -360,5 +394,37 @@ public class Bullet {
             }
         }
         return itemsToTheRight;
+    }
+
+    public List<Bullet> getChildren() {
+        return _children;
+    }
+
+    public boolean isSelected() {
+        return _selected;
+    }
+
+    public void setSelected(boolean selected) {
+        this._selected = selected;
+    }
+
+    protected Paint getBackgroundPaint() {
+        if (_backgroundPaint == null) {
+            _backgroundPaint = new Paint();
+            int color = getRenderAttribute(AttributeBackgroundColor, AttributeDefaultBackgroundColor);
+            _backgroundPaint.setColor(color);
+            _backgroundPaint.setStyle(Paint.Style.FILL);
+        }
+        return _backgroundPaint;
+    }
+
+    protected Paint getBackgroundHighlightedPaint() {
+        if (_backgroundHighlightedPaint == null) {
+            _backgroundHighlightedPaint = new Paint();
+            int color = getRenderAttribute(AttributeBackgroundColorHighlighted, AttributeDefaultBackgroundHighlightedColor);
+            _backgroundHighlightedPaint.setColor(color);
+            _backgroundHighlightedPaint.setStyle(Paint.Style.FILL);
+        }
+        return _backgroundHighlightedPaint;
     }
 }
