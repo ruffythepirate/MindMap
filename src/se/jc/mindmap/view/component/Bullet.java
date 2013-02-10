@@ -7,10 +7,12 @@ package se.jc.mindmap.view.component;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
@@ -58,11 +60,14 @@ public class Bullet {
     private Paint _textPaint;
     private Paint _backgroundPaint;
     private Paint _backgroundHighlightedPaint;
+    private Paint _pathPaint;
+    private Map<Bullet, Path> _cachedPaths;
     //Bullet properties
     private boolean _selected;
 
     public Bullet(MindMapItem contentToWrap) {
         _displayAttributes = new Hashtable<String, Object>();
+        _cachedPaths = new HashMap<Bullet, Path>();
         _children = new ArrayList<Bullet>();
         _contentToWrap = contentToWrap;
         setPosition(0, 0);
@@ -87,8 +92,17 @@ public class Bullet {
                 renderChildrenToRight(canvasToRenderOn, 0, getChildren().size());
                 break;
         }
+        renderChildConnections(canvasToRenderOn);
     }
 
+    private void renderChildConnections(Canvas canvasToRenderOn)
+    {
+        for(Bullet child : _children)
+        {
+            renderChildConnection(child, canvasToRenderOn);
+        }
+    }
+    
     public void renderChildrenCenter(Canvas canvasToRenderOn) {
         int itemsToTheRight = getOptimalNumberOfChildrenToRight();
         renderChildrenToRight(canvasToRenderOn, 0, itemsToTheRight);
@@ -104,6 +118,20 @@ public class Bullet {
         }
         return totalHeight;
     }
+    
+    public PointF getRightConnectPoint()
+    {
+        Point position = getPosition();
+        Rect itemBounds = getItemBounds();
+        return new PointF(position.x + itemBounds.width(), position.y + itemBounds.height() / 2);
+    }
+    
+    public PointF getLeftConnectPoint()
+    {
+        Point position = getPosition();
+        Rect itemBounds = getItemBounds();
+        return new PointF(position.x, position.y + itemBounds.height() / 2);    
+    }
 
     public void renderChildrenToLeft(Canvas canvasToRenderOn, int startIndex, int stopIndex) {
         int itemExternalPaddingWidth = getRenderAttribute(AttributeExternalPaddingWidth, AttributeDefaultExternalPadding);
@@ -114,7 +142,6 @@ public class Bullet {
         int itemTop = getPosition().y + getItemBounds().top;
         int itemExternalPaddingHeight = getRenderAttribute(AttributeExternalPaddingHeight, AttributeDefaultExternalPadding);
         int nextItemTop = itemTop + childItemsSize / 2;
-
 
         //render items 
         for (int i = startIndex; i < stopIndex; i++) {
@@ -426,5 +453,73 @@ public class Bullet {
             _backgroundHighlightedPaint.setStyle(Paint.Style.FILL);
         }
         return _backgroundHighlightedPaint;
+    }
+
+    protected Paint getPathPaint() {
+        if (_pathPaint == null) {
+            _pathPaint = new Paint();
+            int color = getRenderAttribute(AttributeForeColorBorder, AttributeDefaultForeColor);
+            _pathPaint.setColor(color);
+            _pathPaint.setStyle(Paint.Style.STROKE);
+            _pathPaint.setAntiAlias(true);
+        }
+        return _pathPaint;
+    }
+
+    private void renderChildConnection(Bullet child, Canvas canvasToRenderOn) {
+        
+        Path path = getChildPath(child);
+        renderConnectionPath(path, canvasToRenderOn);
+    }
+    
+    private Path getChildPath(Bullet child) 
+    {
+        if(! getCachedPaths().containsKey(child))
+        {
+            Path calculatedPath = calculateBezierPath(child);
+            getCachedPaths().put(child, calculatedPath);
+        }
+        return getCachedPaths().get(child);
+    }
+
+    private void renderConnectionPath(Path path, Canvas canvasToRenderOn) {
+        Paint pathPaint = getPathPaint();
+        canvasToRenderOn.drawPath(path, pathPaint);
+    }
+
+    private Path calculateBezierPath(PointF startPoint, PointF endPoint) {
+        float offset = (startPoint.x - endPoint.x) / 2.0f;
+        Path path = new Path();
+        path.moveTo(startPoint.x, startPoint.y);
+        float x2 = (endPoint.x + startPoint.x) / 2;
+        float y2 = (endPoint.y + startPoint.y) / 2;
+        path.quadTo(startPoint.x -offset ,startPoint.y , x2, y2);
+        path.quadTo(endPoint.x + offset, endPoint.y,endPoint.x , endPoint.y);
+        return path;
+    }
+
+    private Path calculateBezierPath(Bullet child) {
+        int xDiff = getPosition().x - child.getPosition().x;
+        PointF endPoint;
+        PointF startPoint;
+        if(xDiff < 0)
+        {
+            startPoint = getRightConnectPoint();
+            endPoint = child.getLeftConnectPoint();
+        } else
+        {
+            startPoint = child.getRightConnectPoint();
+            endPoint = getLeftConnectPoint();            
+        }
+        Path path = calculateBezierPath(startPoint, endPoint);
+        return path;
+    }
+
+    protected Map<Bullet, Path> getCachedPaths() {
+        if(_cachedPaths == null)
+        {
+            _cachedPaths = new Hashtable<Bullet, Path>();
+        }
+        return _cachedPaths;
     }
 }
