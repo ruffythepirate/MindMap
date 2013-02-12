@@ -26,6 +26,8 @@ public class MindMapView extends ZoomView {
     private MindMapItem _mindMapRoot;
     private Bullet _bulletRoot;
     private Bullet _selectedBullet;
+    //Listeners
+    public OnSelectedBulletChangeListener _selectedBulletChangeListener;
 
     public MindMapView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -55,8 +57,8 @@ public class MindMapView extends ZoomView {
         int y = (height - itemBounds.height()) / 2;
 
         _bulletRoot.setPosition(x, y);
-        _bulletRoot.render(canvas);        
-        
+        _bulletRoot.render(canvas);
+
         super.onDraw(canvas);
     }
 
@@ -73,7 +75,11 @@ public class MindMapView extends ZoomView {
 
                 Bullet foundBullet = getBulletAtCoordinate(getBulletRoot(), transformedPoint);
                 if (foundBullet != null) {
-                    setSelectedBullet(foundBullet);
+                    if (foundBullet.getWrappedContent() != getSelectedMindMapItem()) {
+                        setSelectedBullet(foundBullet);
+                    } else {
+                        setSelectedBullet(null);
+                    }
                     return true;
                 }
                 break;
@@ -125,8 +131,11 @@ public class MindMapView extends ZoomView {
     /**
      * @return the _selectedBullet
      */
-    public Bullet getSelectedBullet() {
-        return _selectedBullet;
+    public MindMapItem getSelectedMindMapItem() {
+        if (_selectedBullet != null) {
+            return _selectedBullet.getWrappedContent();
+        }
+        return null;
     }
 
     /**
@@ -134,16 +143,26 @@ public class MindMapView extends ZoomView {
      */
     public void setSelectedBullet(Bullet selectedBullet) {
         if (_selectedBullet != selectedBullet) {
-            if(_selectedBullet != null)
-            {
+            if (_selectedBullet != null) {
                 _selectedBullet.setSelected(false);
             }
             this._selectedBullet = selectedBullet;
-            if(_selectedBullet != null)
-            {
+            if (_selectedBullet != null) {
                 _selectedBullet.setSelected(true);
             }
             invalidate();
+            OnSelectedBulletChangeListener selectedBulletChanged = getOnSelectedBulletChangeListener();
+            if (selectedBulletChanged != null) {
+                selectedBulletChanged.onSelectedBulletChanged(this, _selectedBullet);
+            }
         }
+    }
+
+    public OnSelectedBulletChangeListener getOnSelectedBulletChangeListener() {
+        return _selectedBulletChangeListener;
+    }
+
+    public void setOnSelectedBulletChangeListener(OnSelectedBulletChangeListener selectedBulletChangeListener) {
+        this._selectedBulletChangeListener = selectedBulletChangeListener;
     }
 }

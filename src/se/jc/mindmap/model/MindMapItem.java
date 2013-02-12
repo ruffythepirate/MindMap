@@ -6,12 +6,14 @@ package se.jc.mindmap.model;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Observable;
+import se.jc.library.util.SuspendableObservable;
 
 /**
  *
  * @author Ruffy
  */
-public class MindMapItem {
+public class MindMapItem extends SuspendableObservable {
 
     private MindMapItem _parent;
     private String _text;
@@ -36,11 +38,24 @@ public class MindMapItem {
         return _parent;
     }
 
-    public List<MindMapItem> getChildren()
-    {
+    public int getChildIndex(MindMapItem mindMapItem) {
+        return _children.indexOf(mindMapItem);
+    }
+
+    public void removeChild(MindMapItem childToRemove) {
+        _children.remove(childToRemove);
+        setChangeAndNotifyObservers(this);
+    }
+
+    public void addChild(int index, MindMapItem childToAdd) {
+        _children.add(index, childToAdd);
+        setChangeAndNotifyObservers(this);
+    }
+
+    public List<MindMapItem> getChildren() {
         return _children;
     }
-    
+
     /**
      * @param parent the _parent to set
      */
@@ -60,5 +75,29 @@ public class MindMapItem {
      */
     public void setText(String text) {
         this._text = text;
+
+        setChangeAndNotifyObservers(this);
+    }
+    
+    public void deleteOne()
+    {
+        if(_parent != null)
+        {
+            _parent.suspendBinding();
+            for(MindMapItem child : _children)
+            {
+                _parent.addChild(0, child);
+            }
+            _parent.removeChild(this);
+            _parent.resumeBinding(_parent);
+        }    
+    }
+    
+    public void deleteBranch()
+    {
+        if(_parent != null)
+        {
+            _parent.removeChild(this);
+        }
     }
 }

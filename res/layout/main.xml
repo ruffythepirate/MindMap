@@ -1,34 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
-    android:layout_width="fill_parent"
-    android:layout_height="fill_parent"
-    >
-<!--<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="horizontal"
-    android:layout_width="fill_parent"
-    android:layout_height="wrap_content"
-    >
-<TextView
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:text="Hello World, Suromania"
-    />
-<Button
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:text="Refresh View"
-    android:onClick="refreshView"
-    />
-</LinearLayout>
-<TextView android:layout_width="fill_parent"
-android:layout_height="fill_parent"
-android:text="Wow, bitchin!"
-/>-->
-<se.jc.mindmap.view.MindMapView 
-        android:id="@+id/mindMap"
-    android:layout_width="fill_parent"
-android:layout_height="fill_parent"
-/>
+              android:orientation="horizontal"
+              android:layout_width="fill_parent"
+              android:layout_height="fill_parent">
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical"
+               android:layout_weight="7"
+             android:layout_width="fill_parent"
+              android:layout_height="fill_parent">
+        <se.jc.mindmap.view.MindMapView 
+            android:id="@+id/mindMap"
+            android:layout_width="fill_parent"
+            android:layout_weight="1"
+            android:layout_height="fill_parent"/>
+        <EditText
+            android:id="@+id/editText"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:layout_weight="4"
+            android:visibility="gone"/>            
+    </LinearLayout>
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:id="@+id/actionPanel"
+              android:orientation="vertical"
+              android:layout_weight="1"
+              android:layout_width="wrap_content"
+              android:layout_height="fill_parent"
+              android:visibility="gone">
+        <Button 
+            android:text="Add Child"
+            android:layout_height="wrap_content"
+            android:layout_width="fill_parent"
+            android:onClick="onAddChildClicked"/>
+        <Button 
+            android:text="Add Sibling"
+            android:layout_height="wrap_content"
+            android:layout_width="fill_parent"
+            android:onClick="onAddSiblingClicked"/>
+        <Button 
+            android:text="Delete One"
+            android:layout_height="wrap_content"
+            android:layout_width="fill_parent"
+            android:onClick="onDeleteSelectedClicked"/>
+        <Button 
+            android:text="Delete Branch"
+            android:layout_height="wrap_content"
+            android:layout_width="fill_parent"
+            android:onClick="onDeleteBranchClicked"/>
+        <Button 
+            android:text="Edit"
+            android:layout_height="wrap_content"
+            android:layout_width="fill_parent"
+            android:onClick="onEditClicked"/>
+    </LinearLayout>
 </LinearLayout>
 

@@ -16,13 +16,15 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Observable;
+import java.util.Observer;
 import se.jc.mindmap.model.MindMapItem;
 
 /**
  *
  * @author Ruffy
  */
-public class Bullet {
+public class Bullet implements Observer {
     // Default Values
 
     public static final Integer AttributeDefaultPadding = 5;
@@ -51,7 +53,7 @@ public class Bullet {
     private Bullet _parent;
     //Different rendering properties.
     private Map<String, Object> _displayAttributes;
-    private MindMapItem _contentToWrap;
+    private MindMapItem _wrappedContent;
     //Display data that is cached for efficiency.
     private Rect _textBounds;
     private Rect _itemBounds;
@@ -69,7 +71,7 @@ public class Bullet {
         _displayAttributes = new Hashtable<String, Object>();
         _cachedPaths = new HashMap<Bullet, Path>();
         _children = new ArrayList<Bullet>();
-        _contentToWrap = contentToWrap;
+        setContentToWrap(contentToWrap);
         setPosition(0, 0);
 
         populateChildrenEntities();
@@ -95,14 +97,12 @@ public class Bullet {
         renderChildConnections(canvasToRenderOn);
     }
 
-    private void renderChildConnections(Canvas canvasToRenderOn)
-    {
-        for(Bullet child : _children)
-        {
+    private void renderChildConnections(Canvas canvasToRenderOn) {
+        for (Bullet child : _children) {
             renderChildConnection(child, canvasToRenderOn);
         }
     }
-    
+
     public void renderChildrenCenter(Canvas canvasToRenderOn) {
         int itemsToTheRight = getOptimalNumberOfChildrenToRight();
         renderChildrenToRight(canvasToRenderOn, 0, itemsToTheRight);
@@ -118,19 +118,17 @@ public class Bullet {
         }
         return totalHeight;
     }
-    
-    public PointF getRightConnectPoint()
-    {
+
+    public PointF getRightConnectPoint() {
         Point position = getPosition();
         Rect itemBounds = getItemBounds();
         return new PointF(position.x + itemBounds.width(), position.y + itemBounds.height() / 2);
     }
-    
-    public PointF getLeftConnectPoint()
-    {
+
+    public PointF getLeftConnectPoint() {
         Point position = getPosition();
         Rect itemBounds = getItemBounds();
-        return new PointF(position.x, position.y + itemBounds.height() / 2);    
+        return new PointF(position.x, position.y + itemBounds.height() / 2);
     }
 
     public void renderChildrenToLeft(Canvas canvasToRenderOn, int startIndex, int stopIndex) {
@@ -209,7 +207,7 @@ public class Bullet {
 
     private void populateChildrenEntities() {
         getChildren().clear();
-        for (MindMapItem childItem : _contentToWrap.getChildren()) {
+        for (MindMapItem childItem : getWrappedContent().getChildren()) {
             Bullet childBullet = new Bullet(childItem);
             getChildren().add(childBullet);
             childBullet.setParent(this);
@@ -250,14 +248,14 @@ public class Bullet {
      * @return the _contentToWrap
      */
     protected MindMapItem getContentToWrap() {
-        return _contentToWrap;
+        return getWrappedContent();
     }
 
     /**
      * @param contentToWrap the _contentToWrap to set
      */
     protected void setContentToWrap(MindMapItem contentToWrap) {
-        this._contentToWrap = contentToWrap;
+        this.setWrappedContent(contentToWrap);
     }
 
     public int getDesiredHeightWithChildren() {
@@ -335,7 +333,10 @@ public class Bullet {
      * @param position the _position to set
      */
     public void setPosition(Point position) {
-        this._position = position;
+        if (_position == null || _position.x != position.x || _position.y != position.y) {
+            this._position = position;
+            clearCachedPaths();
+        }
     }
 
     public void setPosition(int x, int y) {
@@ -467,15 +468,13 @@ public class Bullet {
     }
 
     private void renderChildConnection(Bullet child, Canvas canvasToRenderOn) {
-        
+
         Path path = getChildPath(child);
         renderConnectionPath(path, canvasToRenderOn);
     }
-    
-    private Path getChildPath(Bullet child) 
-    {
-        if(! getCachedPaths().containsKey(child))
-        {
+
+    private Path getChildPath(Bullet child) {
+        if (!getCachedPaths().containsKey(child)) {
             Path calculatedPath = calculateBezierPath(child);
             getCachedPaths().put(child, calculatedPath);
         }
@@ -493,8 +492,8 @@ public class Bullet {
         path.moveTo(startPoint.x, startPoint.y);
         float x2 = (endPoint.x + startPoint.x) / 2;
         float y2 = (endPoint.y + startPoint.y) / 2;
-        path.quadTo(startPoint.x -offset ,startPoint.y , x2, y2);
-        path.quadTo(endPoint.x + offset, endPoint.y,endPoint.x , endPoint.y);
+        path.quadTo(startPoint.x - offset, startPoint.y, x2, y2);
+        path.quadTo(endPoint.x + offset, endPoint.y, endPoint.x, endPoint.y);
         return path;
     }
 
@@ -502,24 +501,113 @@ public class Bullet {
         int xDiff = getPosition().x - child.getPosition().x;
         PointF endPoint;
         PointF startPoint;
-        if(xDiff < 0)
-        {
+        if (xDiff < 0) {
             startPoint = getRightConnectPoint();
             endPoint = child.getLeftConnectPoint();
-        } else
-        {
+        } else {
             startPoint = child.getRightConnectPoint();
-            endPoint = getLeftConnectPoint();            
+            endPoint = getLeftConnectPoint();
         }
         Path path = calculateBezierPath(startPoint, endPoint);
         return path;
     }
 
     protected Map<Bullet, Path> getCachedPaths() {
-        if(_cachedPaths == null)
-        {
+        if (_cachedPaths == null) {
             _cachedPaths = new Hashtable<Bullet, Path>();
         }
         return _cachedPaths;
+    }
+
+    public MindMapItem getWrappedContent() {
+        return _wrappedContent;
+    }
+
+    public void setWrappedContent(MindMapItem wrappedContent) {
+        if (_wrappedContent != null) {
+            _wrappedContent.deleteObserver(this);
+        }
+        wrappedContent.addObserver(this);
+        this._wrappedContent = wrappedContent;
+    }
+
+    private void clearCachedPaths() {
+        _cachedPaths.clear();
+    }
+
+    public void update(Observable observable, Object data) {
+        MindMapItem updatedMindMapItem = (MindMapItem) observable;
+
+        if (updatedMindMapItem == getWrappedContent()) {
+            //We synchronize the children of the node.
+            List<Bullet> bulletsToRemove = getBulletsToDelete();
+            List<Bullet> bulletsToAdd = getBulletsToAdd();
+            for(Bullet bulletToRemove : bulletsToRemove)
+            {
+                _children.remove(bulletToRemove);
+            }
+            for(Bullet bulletToAdd : bulletsToAdd)
+            {
+                _children.remove(bulletToAdd);
+            }
+            sortBullets();
+        }
+        clearCachedPaths();
+        _textBounds = null;
+        _itemBounds = null;
+        
+    }
+
+    private void sortBullets()
+    {
+        List<Bullet> newBulletsList = new ArrayList<Bullet>();
+        for (MindMapItem child : getWrappedContent().getChildren()) {
+            boolean bulletFound = false;
+            for (Bullet currentChildBullet : getChildren()) {
+                if (currentChildBullet.getWrappedContent() == child) {
+                    newBulletsList.add(currentChildBullet);
+                    break;
+                }
+            }
+        }
+        setChildren(newBulletsList);
+    }
+    
+    private List<Bullet> getBulletsToDelete() {
+        List<Bullet> bulletsToDelete = new ArrayList<Bullet>();
+        for (Bullet currentChildBullet : getChildren()) {
+            boolean bulletFound = false;
+            for (MindMapItem child : getWrappedContent().getChildren()) {
+                if (currentChildBullet.getWrappedContent() == child) {
+                    bulletFound = true;
+                    break;
+                }
+            }
+            if (!bulletFound) {
+                bulletsToDelete.add(currentChildBullet);
+            }
+        }
+        return bulletsToDelete;
+    }
+
+    private List<Bullet> getBulletsToAdd() {
+        List<Bullet> bulletsToAdd = new ArrayList<Bullet>();
+        for (MindMapItem child : getWrappedContent().getChildren()) {
+            boolean bulletFound = false;
+            for (Bullet currentChildBullet : getChildren()) {
+                if (currentChildBullet.getWrappedContent() == child) {
+                    bulletFound = true;
+                    break;
+                }
+            }
+            if (!bulletFound) {
+                bulletsToAdd.add(new Bullet(child));
+            }
+        }
+        return bulletsToAdd;
+    }
+
+    private void setChildren(List<Bullet> children) {
+        this._children = children;
     }
 }
