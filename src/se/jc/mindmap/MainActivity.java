@@ -12,6 +12,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
+import se.jc.mindmap.model.MindMapItem;
 import se.jc.mindmap.view.MindMapView;
 import se.jc.mindmap.view.OnSelectedBulletChangeListener;
 import se.jc.mindmap.view.component.Bullet;
@@ -21,6 +22,7 @@ public class MainActivity extends Activity implements TextWatcher {
     private MindMapView _mindMapView;
     private LinearLayout _actionPanel;
     private EditText _editTextView;
+    private MindMapEditMode _currentEditMode;
 
     /**
      * Called when the activity is first created.
@@ -52,8 +54,22 @@ public class MainActivity extends Activity implements TextWatcher {
                                 && event.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
                             if (!event.isShiftPressed()) {
                                 // the user is done typing. 
-                                _editTextView.setVisibility(View.GONE);
-                                return true; // consume.
+                                MindMapItem selectedItem = _mindMapView.getSelectedMindMapItem();
+
+                                if (_currentEditMode == MindMapEditMode.Edit) {
+                                    _currentEditMode = MindMapEditMode.Undefined;
+                                    _editTextView.setVisibility(View.GONE);
+                                    return true; // consume.
+                                } else if (_currentEditMode == MindMapEditMode.AddChild && selectedItem != null) {
+                                    selectedItem.addChild(_editTextView.getText().toString());
+                                    _editTextView.setText("");
+                                    _mindMapView.invalidate();
+
+                                } else if (_currentEditMode == MindMapEditMode.AddSibling && selectedItem != null) {
+                                    selectedItem.addSibling(_editTextView.getText().toString());
+                                    _editTextView.setText("");
+                                    _mindMapView.invalidate();
+                                }
                             }
                         }
                         return false; // pass on to other listeners. 
@@ -67,6 +83,7 @@ public class MainActivity extends Activity implements TextWatcher {
 
     public void onEditClicked(View v) {
         if (_mindMapView.getSelectedMindMapItem() != null) {
+            _currentEditMode = MindMapEditMode.Edit;
             _editTextView.setText(_mindMapView.getSelectedMindMapItem().getText());
             _editTextView.setVisibility(View.VISIBLE);
             _editTextView.requestFocus();
@@ -74,9 +91,21 @@ public class MainActivity extends Activity implements TextWatcher {
     }
 
     public void onAddSiblingClicked(View v) {
+        if (_mindMapView.getSelectedMindMapItem() != null) {
+            _currentEditMode = MindMapEditMode.AddSibling;
+            _editTextView.setText("");
+            _editTextView.setVisibility(View.VISIBLE);
+            _editTextView.requestFocus();
+        }
     }
 
     public void onAddChildClicked(View v) {
+        if (_mindMapView.getSelectedMindMapItem() != null) {
+            _currentEditMode = MindMapEditMode.AddChild;
+            _editTextView.setText("");
+            _editTextView.setVisibility(View.VISIBLE);
+            _editTextView.requestFocus();
+        }
     }
 
     public void onDeleteSelectedClicked(View v) {
@@ -98,6 +127,7 @@ public class MainActivity extends Activity implements TextWatcher {
                 _actionPanel.setVisibility(View.VISIBLE);
             } else {
                 _actionPanel.setVisibility(View.GONE);
+                _editTextView.setVisibility(View.GONE);
             }
         }
     };
@@ -109,8 +139,10 @@ public class MainActivity extends Activity implements TextWatcher {
     }
 
     public void afterTextChanged(Editable s) {
-        String newText = _editTextView.getText().toString();
-        _mindMapView.getSelectedMindMapItem().setText(newText);
-        _mindMapView.invalidate();
+        if (_currentEditMode == MindMapEditMode.Edit) {
+            String newText = _editTextView.getText().toString();
+            _mindMapView.getSelectedMindMapItem().setText(newText);
+            _mindMapView.invalidate();
+        }
     }
 }

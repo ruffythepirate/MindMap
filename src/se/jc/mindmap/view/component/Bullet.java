@@ -336,6 +336,10 @@ public class Bullet implements Observer {
         if (_position == null || _position.x != position.x || _position.y != position.y) {
             this._position = position;
             clearCachedPaths();
+            if(_parent != null)
+            {
+                _parent.clearCachedPaths();
+            }
         }
     }
 
@@ -548,9 +552,13 @@ public class Bullet implements Observer {
             }
             for(Bullet bulletToAdd : bulletsToAdd)
             {
-                _children.remove(bulletToAdd);
+                _children.add(bulletToAdd);
             }
             sortBullets();
+        }
+        if(_parent != null)
+        {
+            _parent.clearCachedPaths();
         }
         clearCachedPaths();
         _textBounds = null;

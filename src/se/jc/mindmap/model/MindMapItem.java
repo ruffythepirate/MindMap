@@ -49,7 +49,29 @@ public class MindMapItem extends SuspendableObservable {
 
     public void addChild(int index, MindMapItem childToAdd) {
         _children.add(index, childToAdd);
+        childToAdd.setParent(this);
         setChangeAndNotifyObservers(this);
+    }
+
+        public void addChild(MindMapItem childToAdd) {
+        _children.add(childToAdd);
+        childToAdd.setParent(this);
+        setChangeAndNotifyObservers(this);
+    }
+
+    
+    public void addChild(String childText) {
+        MindMapItem childToAdd = new MindMapItem(childText);
+        addChild(childToAdd);
+    }
+
+    public void addSibling(String childText) {
+        if (_parent != null) {
+            MindMapItem childToAdd = new MindMapItem(childText);
+            int currentIndex = _parent.getChildIndex(this);
+            _parent.addChild(currentIndex + 1, childToAdd);
+            setChangeAndNotifyObservers(this);
+        }
     }
 
     public List<MindMapItem> getChildren() {
@@ -78,25 +100,20 @@ public class MindMapItem extends SuspendableObservable {
 
         setChangeAndNotifyObservers(this);
     }
-    
-    public void deleteOne()
-    {
-        if(_parent != null)
-        {
+
+    public void deleteOne() {
+        if (_parent != null) {
             _parent.suspendBinding();
-            for(MindMapItem child : _children)
-            {
+            for (MindMapItem child : _children) {
                 _parent.addChild(0, child);
             }
             _parent.removeChild(this);
             _parent.resumeBinding(_parent);
-        }    
+        }
     }
-    
-    public void deleteBranch()
-    {
-        if(_parent != null)
-        {
+
+    public void deleteBranch() {
+        if (_parent != null) {
             _parent.removeChild(this);
         }
     }
