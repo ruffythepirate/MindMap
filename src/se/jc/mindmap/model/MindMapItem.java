@@ -53,7 +53,8 @@ public class MindMapItem extends SuspendableObservable {
         setChangeAndNotifyObservers(this);
     }
 
-        public void addChild(MindMapItem childToAdd) {
+    public void addChild(MindMapItem childToAdd) {
+        
         _children.add(childToAdd);
         childToAdd.setParent(this);
         setChangeAndNotifyObservers(this);
@@ -77,11 +78,36 @@ public class MindMapItem extends SuspendableObservable {
     public List<MindMapItem> getChildren() {
         return _children;
     }
+    
+     public void setChildren(List<MindMapItem> childrenToSet) {
+        _children.clear();
+         for(MindMapItem child : childrenToSet)
+        {
+            if(child != this)
+            {
+                _children.add(child);
+            }
+        }
+            setChangeAndNotifyObservers(this);
+    }
+    
+    public List<MindMapItem> copyChildren() {
+        ArrayList<MindMapItem> childrenCopy = new ArrayList<MindMapItem>(_children.size());
+        for(MindMapItem child : _children)
+        {
+            childrenCopy.add(child);
+        }
+        return childrenCopy;
+    }
 
     /**
      * @param parent the _parent to set
      */
     public void setParent(MindMapItem parent) {
+        if(_parent != null && _parent != parent)
+        {
+            _parent.removeChild(this);
+        }
         this._parent = parent;
     }
 
@@ -116,5 +142,25 @@ public class MindMapItem extends SuspendableObservable {
         if (_parent != null) {
             _parent.removeChild(this);
         }
+    }
+    
+    public static void SwapItems(MindMapItem itemOne, MindMapItem itemTwo)
+    {
+        MindMapItem itemOneParent = itemOne.getParent();
+        MindMapItem itemTwoParent = itemTwo.getParent();
+        itemOneParent = itemOneParent == itemTwo ? itemOne : itemOneParent;
+        itemTwoParent = itemTwoParent == itemOne ? itemTwo : itemOneParent;
+        
+        List<MindMapItem> itemOneChildren = itemOne.copyChildren();
+        List<MindMapItem> itemTwoChildren = itemTwo.copyChildren();
+        
+        itemOne.suspendBinding();
+        itemTwo.suspendBinding();
+        itemOne.setChildren(itemTwoChildren);
+        itemTwo.setChildren(itemOneChildren);
+        itemOne.setParent(itemTwoParent);
+        itemTwo.setParent(itemOneParent);
+        itemOne.resumeBinding(itemOne);
+        itemTwo.resumeBinding(itemTwo);        
     }
 }

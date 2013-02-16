@@ -8,6 +8,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.PointF;
+import android.os.Handler;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -25,6 +26,7 @@ public class ZoomView extends View {
     protected static int ACTION_MODE_NONE = 0;
     protected static int ACTION_MODE_DRAG = 1;
     protected static int ACTION_MODE_ZOOM = 2;
+    protected static int ACTION_MODE_PAN_IN_CORNERS = 3;
     private static float MIN_ZOOM = 0.25f;
     private static float MAX_ZOOM = 4f;
     protected static int LONGPRESS_TIME = 500;
@@ -36,11 +38,12 @@ public class ZoomView extends View {
     private int _actionMode;
     private PointF _currentDragStart;
     private PointF _cameraDragStartTranslation;
+    Handler _guiThreadHandler;
 
     public ZoomView(Context context, AttributeSet attrs) {
         super(context, attrs);
         initializeZoomComponents();
-
+        _guiThreadHandler = new Handler();
     }
 
     public ZoomView(Context context, AttributeSet attrs, int defStyle) {
@@ -97,6 +100,14 @@ public class ZoomView extends View {
     public void onClickEvent(MotionEvent event) {
     }
 
+    private void internalOnLongClickEvent(final PointF rawPoint) {
+        _guiThreadHandler.post(new Runnable() {
+            public void run() {
+                onLongClickEvent(rawPoint);
+            }
+        });
+    }
+
     public void onLongClickEvent(PointF rawPoint) {
     }
 
@@ -122,6 +133,10 @@ public class ZoomView extends View {
 
     protected PointF getCurrentDragStart() {
         return _currentDragStart;
+    }
+
+    public PointF getAsAbsoluteCoordinate(PointF rawPoint) {
+        return getAsAbsoluteCoordinate(rawPoint.x, rawPoint.y);
     }
 
     public PointF getAsAbsoluteCoordinate(float x, float y) {
@@ -188,7 +203,7 @@ public class ZoomView extends View {
         currentLongPressTimer.schedule(new TimerTask() {
             @Override
             public void run() {
-                onLongClickEvent(location);
+                internalOnLongClickEvent(location);
             }
         }, LONGPRESS_TIME);
     }

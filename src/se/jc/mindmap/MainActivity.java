@@ -13,6 +13,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
 import se.jc.mindmap.model.MindMapItem;
+import se.jc.mindmap.view.MindMapItemActionRequestListener;
 import se.jc.mindmap.view.MindMapView;
 import se.jc.mindmap.view.OnSelectedBulletChangeListener;
 import se.jc.mindmap.view.component.Bullet;
@@ -34,6 +35,7 @@ public class MainActivity extends Activity implements TextWatcher {
 
         _mindMapView = (MindMapView) findViewById(R.id.mindMap);
         _mindMapView.setOnSelectedBulletChangeListener(_selectedBulletChangeListener);
+        _mindMapView.setMindMapActionListener(_mindMapItemActionRequestListener);
 
         _actionPanel = (LinearLayout) findViewById(R.id.actionPanel);
 
@@ -131,7 +133,24 @@ public class MainActivity extends Activity implements TextWatcher {
             }
         }
     };
+    
+    private MindMapItemActionRequestListener _mindMapItemActionRequestListener = new MindMapItemActionRequestListener() {
 
+        public boolean requestBecomeChild(MindMapItem requestedParent, MindMapItem requestChild, int index) {
+            requestedParent.addChild(requestChild);
+            return false;
+        }
+
+        public boolean requestSwap(MindMapItem firstItem, MindMapItem secondItem) {
+            if(firstItem == null || secondItem == null || firstItem == secondItem)
+            {
+                return false;
+            }
+            MindMapItem.SwapItems(firstItem, secondItem);
+            return true;
+        }
+    };
+            
     public void beforeTextChanged(CharSequence s, int start, int count, int after) {
     }
 

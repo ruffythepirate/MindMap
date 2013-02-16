@@ -25,56 +25,52 @@ import se.jc.mindmap.model.MindMapItem;
  * @author Ruffy
  */
 public class Bullet implements Observer {
-    // Default Values
 
-    public static final Integer AttributeDefaultPadding = 5;
-    public static final Integer AttributeDefaultExternalPadding = 10;
-    public static final Integer AttributeDefaultForeColor = Color.BLUE;
-    public static final Integer AttributeDefaultBackgroundColor = Color.GRAY;
-    public static final Integer AttributeDefaultBackgroundHighlightedColor = Color.MAGENTA;
-    //Attribute Keys
-    //Color Keys
-    public static final String AttributeForeColor = "color.fore";
-    public static final String AttributeForeColorBorder = "color.fore.border";
-    public static final String AttributeForeColorText = "color.fore.text";
-    public static final String AttributeBackgroundColor = "color.back";
-    public static final String AttributeBackgroundColorHighlighted = "color.back.highlighted";
-    //Padding Keys
-    public static final String AttributePadding = "padding";
-    public static final String AttributePaddingLeft = "padding.left";
-    public static final String AttributePaddingRight = "padding.right";
-    public static final String AttributePaddingTop = "padding.top";
-    public static final String AttributePaddingBottom = "padding.bottom";
-    public static final String AttributeExternalPaddingHeight = "externalpadding.height";
-    public static final String AttributeExternalPaddingWidth = "externalpadding.width";
-    public static final String AttributeExternalPadding = "externalpadding";
     //Other values Mapping.
     private List<Bullet> _children;
     private Bullet _parent;
     //Different rendering properties.
-    private Map<String, Object> _displayAttributes;
     private MindMapItem _wrappedContent;
+    private StyleScheme _currentStyleScheme;
+    private StyleScheme _normalStyleScheme;
+    private StyleScheme _ghostStyleScheme;
     //Display data that is cached for efficiency.
     private Rect _textBounds;
     private Rect _itemBounds;
     private Point _position;
-    private Paint _borderPaint;
-    private Paint _textPaint;
-    private Paint _backgroundPaint;
-    private Paint _backgroundHighlightedPaint;
-    private Paint _pathPaint;
     private Map<Bullet, Path> _cachedPaths;
     //Bullet properties
     private boolean _selected;
+    private BulletRenderStyle _childOrientation;
+    private StyleSchemeType _styleSchemeType;
+    //Bullet Display Properties
+    private boolean _highlightLeft;
+    private boolean _highlightRight;
 
-    public Bullet(MindMapItem contentToWrap) {
-        _displayAttributes = new Hashtable<String, Object>();
+    private Bullet(MindMapItem contentToWrap, boolean createChildBullets) {
         _cachedPaths = new HashMap<Bullet, Path>();
         _children = new ArrayList<Bullet>();
+        _normalStyleScheme = new StyleScheme();
+        _ghostStyleScheme = new StyleScheme();
+        _ghostStyleScheme.setColorAlpha(100);
+
+        setChildOrientation(BulletRenderStyle.Center);
+        setCurrentStyleScheme(_normalStyleScheme);
+
         setContentToWrap(contentToWrap);
         setPosition(0, 0);
 
-        populateChildrenEntities();
+        if (createChildBullets) {
+            populateChildrenEntities();
+        }
+    }
+
+    public static Bullet createBulletWithChildren(MindMapItem contentToWrap) {
+        return new Bullet(contentToWrap, true);
+    }
+
+    public static Bullet createBulletOnlyForItem(MindMapItem contentToWrap) {
+        return new Bullet(contentToWrap, false);
     }
 
     public void updateLayout() {
@@ -108,7 +104,7 @@ public class Bullet implements Observer {
     }
 
     private int getChildItemsSize(int childStartIndex, int childStopIndex) {
-        int itemExternalPadding = getRenderAttribute(AttributeExternalPaddingHeight, AttributeDefaultExternalPadding);
+        int itemExternalPadding = getStyleScheme().getRenderAttribute(StyleScheme.AttributeExternalPaddingHeight);
         int totalHeight = -itemExternalPadding;
         for (int i = childStartIndex; i < childStopIndex; i++) {
             totalHeight += getChildren().get(i).getDesiredHeightWithChildren();
@@ -129,19 +125,53 @@ public class Bullet implements Observer {
         return new PointF(position.x, position.y + itemBounds.height() / 2);
     }
 
+    public void hoverItem(Bullet hoverBullet, PointF hoverPosition) {
+        PointF relativePosition = getRelativePosition(hoverPosition);
+        float highlightRelativePlace =  relativePosition.x / (float)getItemBounds().width();
+        boolean highlightLeft = highlightRelativePlace < 0.5f;
+        setHighlightLeft(highlightLeft);
+        setHighlightRight(!highlightLeft);
+    }
+    
+    public DropItemAction getDropItemAction(Bullet hoverBullet, PointF hoverPosition)
+    {
+        PointF relativePosition = getRelativePosition(hoverPosition);
+        float highlightRelativePlace =  relativePosition.x / (float)getItemBounds().width();
+        DropItemAction action = DropItemAction.Undefined;
+        switch(getChildOrientation())
+        {
+            case Center:
+                action = highlightRelativePlace < 0.25 || highlightRelativePlace > 0.75 ? DropItemAction.AddChild : DropItemAction.Swap;
+                break;
+            case ToTheLeft:
+                action = highlightRelativePlace < 0.5 ? DropItemAction.AddChild : DropItemAction.Swap;
+                break;
+            case ToTheRight:
+                action = highlightRelativePlace > 0.5 ? DropItemAction.AddChild : DropItemAction.Swap;
+                break;
+        }
+        return action;
+    }
+
+    public void hoverItemLeave(Bullet hoverBullet) {
+        setHighlightLeft(false);
+        setHighlightRight(false);
+    }
+
     public void updateLayoutChildrenToLeft(int startIndex, int stopIndex) {
-        int itemExternalPaddingWidth = getRenderAttribute(AttributeExternalPaddingWidth, AttributeDefaultExternalPadding);
+        int itemExternalPaddingWidth = getStyleScheme().getRenderAttribute(StyleScheme.AttributeExternalPaddingWidth);
 
         int childItemsSize = getChildItemsSize(startIndex, stopIndex);
         int endX = getPosition().x - itemExternalPaddingWidth;
 
         int itemTop = getPosition().y + getItemBounds().top;
-        int itemExternalPaddingHeight = getRenderAttribute(AttributeExternalPaddingHeight, AttributeDefaultExternalPadding);
+        int itemExternalPaddingHeight = getStyleScheme().getRenderAttribute(StyleScheme.AttributeExternalPaddingHeight);
         int nextItemTop = itemTop + childItemsSize / 2;
 
         //render items 
         for (int i = startIndex; i < stopIndex; i++) {
             Bullet currentBullet = getChildren().get(i);
+            currentBullet.setChildOrientation(BulletRenderStyle.ToTheLeft);
             int bulletDesiredHeight = currentBullet.getDesiredHeightWithChildren();
             int y = nextItemTop - bulletDesiredHeight / 2;
             currentBullet.setPosition(endX - currentBullet.getItemBounds().width(), y);
@@ -152,9 +182,9 @@ public class Bullet implements Observer {
 
     public void updateLayoutChildrenToRight(int startIndex, int stopIndex) {
         int itemRight = getPosition().x + getItemBounds().right;
-        int itemExternalPaddingWidth = getRenderAttribute(AttributeExternalPaddingWidth, AttributeDefaultExternalPadding);
+        int itemExternalPaddingWidth = getStyleScheme().getRenderAttribute(StyleScheme.AttributeExternalPaddingWidth);
         int itemTop = getPosition().y + getItemBounds().top;
-        int itemExternalPaddingHeight = getRenderAttribute(AttributeExternalPaddingHeight, AttributeDefaultExternalPadding);
+        int itemExternalPaddingHeight = getStyleScheme().getRenderAttribute(StyleScheme.AttributeExternalPaddingHeight);
 
         int childItemsSize = getChildItemsSize(startIndex, stopIndex);
 
@@ -164,6 +194,7 @@ public class Bullet implements Observer {
         //render items 
         for (int i = startIndex; i < stopIndex; i++) {
             Bullet currentBullet = getChildren().get(i);
+            currentBullet.setChildOrientation(BulletRenderStyle.ToTheRight);
             int bulletDesiredHeight = currentBullet.getDesiredHeightWithChildren();
             int y = nextItemTop - bulletDesiredHeight / 2;
             currentBullet.setPosition(x, y);
@@ -179,20 +210,36 @@ public class Bullet implements Observer {
     }
 
     private void renderBackground(Canvas canvasToRenderOn) {
-        Paint backgroundPaint = isSelected() ? getBackgroundHighlightedPaint() : getBackgroundPaint();
+        Paint backgroundPaint = isSelected() ? getStyleScheme().getBackgroundHighlightedPaint() : getStyleScheme().getBackgroundPaint();
         Rect itemBounds = getItemBounds();
         Point position = getPosition();
-
-
         canvasToRenderOn.drawRect(position.x,
                 position.y,
                 position.x + itemBounds.width(),
                 position.y + itemBounds.height(),
                 backgroundPaint);
+        if (!isSelected()) {
+            Paint highlightPaint = getStyleScheme().getBackgroundHighlightedPaint();
+            if (isHighlightLeft()) {
+                canvasToRenderOn.drawRect(position.x,
+                        position.y,
+                        position.x + itemBounds.width()/2,
+                        position.y + itemBounds.height(),
+                        highlightPaint);
+            }
+            if(isHighlightRight())
+            {
+                canvasToRenderOn.drawRect(position.x + itemBounds.width()/ 2,
+                        position.y,
+                        position.x + itemBounds.width() ,
+                        position.y + itemBounds.height(),
+                        highlightPaint);            
+            }
+        }
     }
 
     private void renderBorder(Canvas canvasToRenderOn) {
-        Paint borderPaint = getBorderPaint();
+        Paint borderPaint = getStyleScheme().getBorderPaint();
         Rect itemBounds = getItemBounds();
         Point position = getPosition();
 
@@ -206,7 +253,7 @@ public class Bullet implements Observer {
     private void populateChildrenEntities() {
         getChildren().clear();
         for (MindMapItem childItem : getWrappedContent().getChildren()) {
-            Bullet childBullet = new Bullet(childItem);
+            Bullet childBullet = Bullet.createBulletWithChildren(childItem);
             getChildren().add(childBullet);
             childBullet.setParent(this);
         }
@@ -214,7 +261,7 @@ public class Bullet implements Observer {
 
     private void renderText(Canvas canvasToRenderOn) {
         String textToRender = getContentText();
-        Paint textPaint = getTextPaint();
+        Paint textPaint = getStyleScheme().getTextPaint();
         Point position = getPosition();
         int leftPadding = getLeftPadding();
         int bottomPadding = getBottomPadding();
@@ -224,22 +271,6 @@ public class Bullet implements Observer {
                 position.x + leftPadding,
                 position.y + bottomPadding + itemBounds.height() / 2,
                 textPaint);
-    }
-
-    public void setRenderAttribute(String key, Object value) {
-        _displayAttributes.put(key, value);
-    }
-
-    public <T> T getRenderAttribute(String key, T defaultValue) {
-        while (key != null && key.length() > 0) {
-            if (_displayAttributes.containsKey(key)) {
-                return (T) _displayAttributes.get(key);
-            }
-            key = key.lastIndexOf(".") > 0
-                    ? key.substring(0, key.lastIndexOf("."))
-                    : null;
-        }
-        return defaultValue;
     }
 
     /**
@@ -257,7 +288,7 @@ public class Bullet implements Observer {
     }
 
     public int getDesiredHeightWithChildren() {
-        int betweenChildrenPadding = getRenderAttribute(AttributeExternalPaddingHeight, AttributeDefaultExternalPadding);
+        int betweenChildrenPadding = getCurrentStyleScheme().getRenderAttribute(StyleScheme.AttributeExternalPaddingHeight);
 
         int childrenSize = -betweenChildrenPadding;
         for (Bullet childBullet : getChildren()) {
@@ -282,7 +313,7 @@ public class Bullet implements Observer {
         if (_textBounds == null) {
             _textBounds = new Rect();
             String text = getContentText();
-            getTextPaint().getTextBounds(text, 0, text.length(), _textBounds);
+            getStyleScheme().getTextPaint().getTextBounds(text, 0, text.length(), _textBounds);
         }
         return _textBounds;
     }
@@ -327,6 +358,18 @@ public class Bullet implements Observer {
         return _position;
     }
 
+    protected Point getRelativePosition(Point absolutePosition) {
+        int x = absolutePosition.x - getPosition().x;
+        int y = absolutePosition.y - getPosition().y;
+        return new Point(x, y);
+    }
+
+    public PointF getRelativePosition(PointF absolutePosition) {
+        float x = absolutePosition.x - getPosition().x;
+        float y = absolutePosition.y - getPosition().y;
+        return new PointF(x, y);
+    }
+
     /**
      * @param position the _position to set
      */
@@ -334,8 +377,7 @@ public class Bullet implements Observer {
         if (_position == null || _position.x != position.x || _position.y != position.y) {
             this._position = position;
             clearCachedPaths();
-            if(_parent != null)
-            {
+            if (_parent != null) {
                 _parent.clearCachedPaths();
             }
         }
@@ -345,50 +387,23 @@ public class Bullet implements Observer {
         setPosition(new Point(x, y));
     }
 
-    /**
-     * @return the _borderPaint
-     */
-    protected Paint getBorderPaint() {
-        if (_borderPaint == null) {
-            int borderColor = getRenderAttribute(AttributeForeColorBorder, AttributeDefaultForeColor);
-            _borderPaint = new Paint();
-            _borderPaint.setStyle(Paint.Style.STROKE);
-            _borderPaint.setColor(borderColor);
-        }
-        return _borderPaint;
-    }
-
-    /**
-     * @return the _textPaint
-     */
-    protected Paint getTextPaint() {
-        if (_textPaint == null) {
-            _textPaint = new Paint();
-            int textColor = getRenderAttribute(AttributeForeColorText, AttributeDefaultForeColor);
-            _textPaint.setColor(textColor);
-            _textPaint.setStyle(Paint.Style.STROKE);
-            _textPaint.setAntiAlias(true);
-        }
-        return _textPaint;
-    }
-
     protected int getLeftPadding() {
-        int leftPadding = getRenderAttribute(AttributePaddingLeft, AttributeDefaultPadding);
+        int leftPadding = getStyleScheme().getRenderAttribute(StyleScheme.AttributePaddingLeft);
         return leftPadding;
     }
 
     protected int getRightPadding() {
-        int rightPadding = getRenderAttribute(AttributePaddingRight, AttributeDefaultPadding);
+        int rightPadding = getStyleScheme().getRenderAttribute(StyleScheme.AttributePaddingRight);
         return rightPadding;
     }
 
     protected int getTopPadding() {
-        int topPadding = getRenderAttribute(AttributePaddingTop, AttributeDefaultPadding);
+        int topPadding = getStyleScheme().getRenderAttribute(StyleScheme.AttributePaddingTop);
         return topPadding;
     }
 
     protected int getBottomPadding() {
-        int bottomPadding = getRenderAttribute(AttributePaddingBottom, AttributeDefaultPadding);
+        int bottomPadding = getStyleScheme().getRenderAttribute(StyleScheme.AttributePaddingBottom);
         return bottomPadding;
     }
 
@@ -438,37 +453,6 @@ public class Bullet implements Observer {
         this._selected = selected;
     }
 
-    protected Paint getBackgroundPaint() {
-        if (_backgroundPaint == null) {
-            _backgroundPaint = new Paint();
-            int color = getRenderAttribute(AttributeBackgroundColor, AttributeDefaultBackgroundColor);
-            _backgroundPaint.setColor(color);
-            _backgroundPaint.setStyle(Paint.Style.FILL);
-        }
-        return _backgroundPaint;
-    }
-
-    protected Paint getBackgroundHighlightedPaint() {
-        if (_backgroundHighlightedPaint == null) {
-            _backgroundHighlightedPaint = new Paint();
-            int color = getRenderAttribute(AttributeBackgroundColorHighlighted, AttributeDefaultBackgroundHighlightedColor);
-            _backgroundHighlightedPaint.setColor(color);
-            _backgroundHighlightedPaint.setStyle(Paint.Style.FILL);
-        }
-        return _backgroundHighlightedPaint;
-    }
-
-    protected Paint getPathPaint() {
-        if (_pathPaint == null) {
-            _pathPaint = new Paint();
-            int color = getRenderAttribute(AttributeForeColorBorder, AttributeDefaultForeColor);
-            _pathPaint.setColor(color);
-            _pathPaint.setStyle(Paint.Style.STROKE);
-            _pathPaint.setAntiAlias(true);
-        }
-        return _pathPaint;
-    }
-
     private void renderChildConnection(Bullet child, Canvas canvasToRenderOn) {
 
         Path path = getChildPath(child);
@@ -484,7 +468,7 @@ public class Bullet implements Observer {
     }
 
     private void renderConnectionPath(Path path, Canvas canvasToRenderOn) {
-        Paint pathPaint = getPathPaint();
+        Paint pathPaint = getStyleScheme().getPathPaint();
         canvasToRenderOn.drawPath(path, pathPaint);
     }
 
@@ -544,28 +528,24 @@ public class Bullet implements Observer {
             //We synchronize the children of the node.
             List<Bullet> bulletsToRemove = getBulletsToDelete();
             List<Bullet> bulletsToAdd = getBulletsToAdd();
-            for(Bullet bulletToRemove : bulletsToRemove)
-            {
+            for (Bullet bulletToRemove : bulletsToRemove) {
                 _children.remove(bulletToRemove);
             }
-            for(Bullet bulletToAdd : bulletsToAdd)
-            {
+            for (Bullet bulletToAdd : bulletsToAdd) {
                 _children.add(bulletToAdd);
             }
             sortBullets();
         }
-        if(_parent != null)
-        {
+        if (_parent != null) {
             _parent.clearCachedPaths();
         }
         clearCachedPaths();
         _textBounds = null;
         _itemBounds = null;
-        
+
     }
 
-    private void sortBullets()
-    {
+    private void sortBullets() {
         List<Bullet> newBulletsList = new ArrayList<Bullet>();
         for (MindMapItem child : getWrappedContent().getChildren()) {
             boolean bulletFound = false;
@@ -578,7 +558,7 @@ public class Bullet implements Observer {
         }
         setChildren(newBulletsList);
     }
-    
+
     private List<Bullet> getBulletsToDelete() {
         List<Bullet> bulletsToDelete = new ArrayList<Bullet>();
         for (Bullet currentChildBullet : getChildren()) {
@@ -607,7 +587,7 @@ public class Bullet implements Observer {
                 }
             }
             if (!bulletFound) {
-                bulletsToAdd.add(new Bullet(child));
+                bulletsToAdd.add(Bullet.createBulletWithChildren(child));
             }
         }
         return bulletsToAdd;
@@ -615,5 +595,64 @@ public class Bullet implements Observer {
 
     private void setChildren(List<Bullet> children) {
         this._children = children;
+    }
+
+    protected StyleScheme getStyleScheme() {
+        return getCurrentStyleScheme();
+    }
+
+    protected void setStyleScheme(StyleScheme styleScheme) {
+        this.setCurrentStyleScheme(styleScheme);
+    }
+
+    protected StyleScheme getCurrentStyleScheme() {
+        return _currentStyleScheme;
+    }
+
+    protected void setCurrentStyleScheme(StyleScheme currentStyleScheme) {
+        this._currentStyleScheme = currentStyleScheme;
+    }
+
+    private BulletRenderStyle getChildOrientation() {
+        return _childOrientation;
+    }
+
+    private void setChildOrientation(BulletRenderStyle childOrientation) {
+        this._childOrientation = childOrientation;
+    }
+
+    public boolean isHighlightLeft() {
+        return _highlightLeft;
+    }
+
+    public void setHighlightLeft(boolean highlightLeft) {
+        this._highlightLeft = highlightLeft;
+    }
+
+    public boolean isHighlightRight() {
+        return _highlightRight;
+    }
+
+    public void setHighlightRight(boolean highlightRight) {
+        this._highlightRight = highlightRight;
+    }
+
+    public StyleSchemeType getStyleSchemeType() {
+        return _styleSchemeType;
+    }
+
+    public void setStyleSchemeType(StyleSchemeType styleSchemeType) {
+        this._styleSchemeType = styleSchemeType;
+        switch(styleSchemeType)
+        {
+            case Normal:
+                setStyleScheme(_normalStyleScheme);
+                break;
+            case Ghost:
+                setStyleScheme(_ghostStyleScheme);
+                break;
+            default:
+                break;
+        }
     }
 }
