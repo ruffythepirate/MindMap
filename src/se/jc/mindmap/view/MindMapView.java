@@ -155,7 +155,7 @@ public class MindMapView extends ZoomView {
                     if (hoveredBullet != null) {
                         hoveredBullet.hoverItemLeave(moveBullet);
                         DropItemAction releaseAction = hoveredBullet.getDropItemAction(moveBullet, transformedPoint);
-                        if (handleDropItemAction(moveBullet.getWrappedContent(), hoveredBullet.getWrappedContent(), releaseAction)) {
+                        if (handleDropItemAction(hoveredBullet.getWrappedContent(), moveBullet.getWrappedContent(), releaseAction)) {
                             
                         }
                     }

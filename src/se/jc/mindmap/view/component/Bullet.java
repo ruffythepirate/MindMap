@@ -209,6 +209,13 @@ public class Bullet implements Observer {
         renderText(canvasToRenderOn);
     }
 
+    @Override
+    public String toString() {
+        return getWrappedContent().toString();
+    }
+
+    
+    
     private void renderBackground(Canvas canvasToRenderOn) {
         Paint backgroundPaint = isSelected() ? getStyleScheme().getBackgroundHighlightedPaint() : getStyleScheme().getBackgroundPaint();
         Rect itemBounds = getItemBounds();

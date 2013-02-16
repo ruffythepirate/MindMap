@@ -54,13 +54,12 @@ public class MindMapItem extends SuspendableObservable {
     }
 
     public void addChild(MindMapItem childToAdd) {
-        
+
         _children.add(childToAdd);
         childToAdd.setParent(this);
         setChangeAndNotifyObservers(this);
     }
 
-    
     public void addChild(String childText) {
         MindMapItem childToAdd = new MindMapItem(childText);
         addChild(childToAdd);
@@ -78,23 +77,21 @@ public class MindMapItem extends SuspendableObservable {
     public List<MindMapItem> getChildren() {
         return _children;
     }
-    
-     public void setChildren(List<MindMapItem> childrenToSet) {
+
+    public void setChildren(List<MindMapItem> childrenToSet) {
         _children.clear();
-         for(MindMapItem child : childrenToSet)
-        {
-            if(child != this)
-            {
+        for (MindMapItem child : childrenToSet) {
+            if (child != this) {
+                child.setParent(this);
                 _children.add(child);
             }
         }
-            setChangeAndNotifyObservers(this);
+        setChangeAndNotifyObservers(this);
     }
-    
+
     public List<MindMapItem> copyChildren() {
         ArrayList<MindMapItem> childrenCopy = new ArrayList<MindMapItem>(_children.size());
-        for(MindMapItem child : _children)
-        {
+        for (MindMapItem child : _children) {
             childrenCopy.add(child);
         }
         return childrenCopy;
@@ -103,12 +100,15 @@ public class MindMapItem extends SuspendableObservable {
     /**
      * @param parent the _parent to set
      */
-    public void setParent(MindMapItem parent) {
-        if(_parent != null && _parent != parent)
-        {
+    private void setParent(MindMapItem parent) {
+        if (_parent != null && _parent != parent) {
             _parent.removeChild(this);
         }
         this._parent = parent;
+    }
+
+    public void clearParent() {
+        setParent(null);
     }
 
     /**
@@ -143,24 +143,38 @@ public class MindMapItem extends SuspendableObservable {
             _parent.removeChild(this);
         }
     }
-    
-    public static void SwapItems(MindMapItem itemOne, MindMapItem itemTwo)
-    {
+
+    public static void SwapItems(MindMapItem itemOne, MindMapItem itemTwo) {
         MindMapItem itemOneParent = itemOne.getParent();
         MindMapItem itemTwoParent = itemTwo.getParent();
         itemOneParent = itemOneParent == itemTwo ? itemOne : itemOneParent;
-        itemTwoParent = itemTwoParent == itemOne ? itemTwo : itemOneParent;
-        
+        itemTwoParent = itemTwoParent == itemOne ? itemTwo : itemTwoParent;
+
         List<MindMapItem> itemOneChildren = itemOne.copyChildren();
         List<MindMapItem> itemTwoChildren = itemTwo.copyChildren();
-        
+
         itemOne.suspendBinding();
         itemTwo.suspendBinding();
         itemOne.setChildren(itemTwoChildren);
         itemTwo.setChildren(itemOneChildren);
-        itemOne.setParent(itemTwoParent);
-        itemTwo.setParent(itemOneParent);
+        if (itemTwoParent != null) {
+            itemTwoParent.addChild(itemOne);
+        } else {
+            itemOne.clearParent();
+        }
+        if (itemOneParent != null) {
+            itemOneParent.addChild(itemTwo);
+        } else {
+            itemTwo.clearParent();
+        }
         itemOne.resumeBinding(itemOne);
-        itemTwo.resumeBinding(itemTwo);        
+        itemTwo.resumeBinding(itemTwo);
     }
+
+    @Override
+    public String toString() {
+        return getText() + " " + getChildren().size();
+    }
+    
+    
 }

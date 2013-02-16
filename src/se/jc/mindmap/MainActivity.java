@@ -138,7 +138,7 @@ public class MainActivity extends Activity implements TextWatcher {
 
         public boolean requestBecomeChild(MindMapItem requestedParent, MindMapItem requestChild, int index) {
             requestedParent.addChild(requestChild);
-            return false;
+            return true;
         }
 
         public boolean requestSwap(MindMapItem firstItem, MindMapItem secondItem) {
