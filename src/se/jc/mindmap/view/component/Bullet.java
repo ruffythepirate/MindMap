@@ -4,6 +4,10 @@
  */
 package se.jc.mindmap.view.component;
 
+import android.animation.Animator;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -18,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
+import se.jc.library.util.PointEvaluator;
 import se.jc.mindmap.model.MindMapItem;
 
 /**
@@ -38,6 +43,7 @@ public class Bullet implements Observer {
     private Rect _textBounds;
     private Rect _itemBounds;
     private Point _position;
+    private Point _layoutPosition;
     private Map<Bullet, Path> _cachedPaths;
     //Bullet properties
     private boolean _selected;
@@ -46,8 +52,9 @@ public class Bullet implements Observer {
     //Bullet Display Properties
     private boolean _highlightLeft;
     private boolean _highlightRight;
+    private boolean _runningMoveAnimation;
 
-    private Bullet(MindMapItem contentToWrap, boolean createChildBullets) {
+    private Bullet(MindMapItem contentToWrap) {
         _cachedPaths = new HashMap<Bullet, Path>();
         _children = new ArrayList<Bullet>();
         _normalStyleScheme = new StyleScheme();
@@ -59,18 +66,11 @@ public class Bullet implements Observer {
 
         setContentToWrap(contentToWrap);
         setPosition(0, 0);
-
-        if (createChildBullets) {
-            populateChildrenEntities();
-        }
+        setLayoutPosition(0, 0);
     }
 
-    public static Bullet createBulletWithChildren(MindMapItem contentToWrap) {
-        return new Bullet(contentToWrap, true);
-    }
-
-    public static Bullet createBulletOnlyForItem(MindMapItem contentToWrap) {
-        return new Bullet(contentToWrap, false);
+    public static Bullet createBullet(MindMapItem contentToWrap) {
+        return new Bullet(contentToWrap);
     }
 
     public void updateLayout() {
@@ -103,6 +103,48 @@ public class Bullet implements Observer {
         updateLayoutChildrenToLeft(itemsToTheRight, getChildren().size());
     }
 
+    public void updatePositionInstantlyRecursive() {
+        setPosition(getLayoutPosition());
+        for (Bullet child : getChildren()) {
+            child.updatePositionInstantlyRecursive();
+        }
+    }
+
+    public void populateMovementAnimators(List<ValueAnimator> allAnimators, int animationTime) {
+        updatePositionPopulateAnimators(allAnimators, animationTime);
+        for (Bullet child : getChildren()) {
+            child.populateMovementAnimators(allAnimators, animationTime);
+        }
+    }
+
+    public void updatePositionPopulateAnimators(List<ValueAnimator> allAnimators, int animationTime) {
+        if (!isRunningMoveAnimation()
+                && (getPosition().x != getLayoutPosition().x
+                || getPosition().y != getLayoutPosition().y)) {
+            ObjectAnimator animator = ObjectAnimator.ofObject(this, "position", new PointEvaluator(),
+                    getPosition(), getLayoutPosition());
+            animator.setDuration(animationTime);
+            allAnimators.add(animator);
+
+            animator.addListener(new Animator.AnimatorListener() {
+                public void onAnimationStart(Animator animation) {
+                    setRunningMoveAnimation(true);
+                }
+
+                public void onAnimationEnd(Animator animation) {
+                    setRunningMoveAnimation(false);
+                }
+
+                public void onAnimationCancel(Animator animation) {
+                    setRunningMoveAnimation(false);
+                }
+
+                public void onAnimationRepeat(Animator animation) {
+                }
+            });
+        }
+    }
+
     private int getChildItemsSize(int childStartIndex, int childStopIndex) {
         int itemExternalPadding = getStyleScheme().getRenderAttribute(StyleScheme.AttributeExternalPaddingHeight);
         int totalHeight = -itemExternalPadding;
@@ -127,19 +169,17 @@ public class Bullet implements Observer {
 
     public void hoverItem(Bullet hoverBullet, PointF hoverPosition) {
         PointF relativePosition = getRelativePosition(hoverPosition);
-        float highlightRelativePlace =  relativePosition.x / (float)getItemBounds().width();
+        float highlightRelativePlace = relativePosition.x / (float) getItemBounds().width();
         boolean highlightLeft = highlightRelativePlace < 0.5f;
         setHighlightLeft(highlightLeft);
         setHighlightRight(!highlightLeft);
     }
-    
-    public DropItemAction getDropItemAction(Bullet hoverBullet, PointF hoverPosition)
-    {
+
+    public DropItemAction getDropItemAction(Bullet hoverBullet, PointF hoverPosition) {
         PointF relativePosition = getRelativePosition(hoverPosition);
-        float highlightRelativePlace =  relativePosition.x / (float)getItemBounds().width();
+        float highlightRelativePlace = relativePosition.x / (float) getItemBounds().width();
         DropItemAction action = DropItemAction.Undefined;
-        switch(getChildOrientation())
-        {
+        switch (getChildOrientation()) {
             case Center:
                 action = highlightRelativePlace < 0.25 || highlightRelativePlace > 0.75 ? DropItemAction.AddChild : DropItemAction.Swap;
                 break;
@@ -162,9 +202,9 @@ public class Bullet implements Observer {
         int itemExternalPaddingWidth = getStyleScheme().getRenderAttribute(StyleScheme.AttributeExternalPaddingWidth);
 
         int childItemsSize = getChildItemsSize(startIndex, stopIndex);
-        int endX = getPosition().x - itemExternalPaddingWidth;
+        int endX = getLayoutPosition().x - itemExternalPaddingWidth;
 
-        int itemTop = getPosition().y + getItemBounds().top;
+        int itemTop = getLayoutPosition().y + getItemBounds().top;
         int itemExternalPaddingHeight = getStyleScheme().getRenderAttribute(StyleScheme.AttributeExternalPaddingHeight);
         int nextItemTop = itemTop + childItemsSize / 2;
 
@@ -174,16 +214,16 @@ public class Bullet implements Observer {
             currentBullet.setChildOrientation(BulletRenderStyle.ToTheLeft);
             int bulletDesiredHeight = currentBullet.getDesiredHeightWithChildren();
             int y = nextItemTop - bulletDesiredHeight / 2;
-            currentBullet.setPosition(endX - currentBullet.getItemBounds().width(), y);
+            currentBullet.setLayoutPosition(endX - currentBullet.getItemBounds().width(), y);
             currentBullet.updateLayoutWithChildren(BulletRenderStyle.ToTheLeft);
             nextItemTop -= bulletDesiredHeight + itemExternalPaddingHeight;
         }
     }
 
     public void updateLayoutChildrenToRight(int startIndex, int stopIndex) {
-        int itemRight = getPosition().x + getItemBounds().right;
+        int itemRight = getLayoutPosition().x + getItemBounds().right;
         int itemExternalPaddingWidth = getStyleScheme().getRenderAttribute(StyleScheme.AttributeExternalPaddingWidth);
-        int itemTop = getPosition().y + getItemBounds().top;
+        int itemTop = getLayoutPosition().y + getItemBounds().top;
         int itemExternalPaddingHeight = getStyleScheme().getRenderAttribute(StyleScheme.AttributeExternalPaddingHeight);
 
         int childItemsSize = getChildItemsSize(startIndex, stopIndex);
@@ -197,7 +237,7 @@ public class Bullet implements Observer {
             currentBullet.setChildOrientation(BulletRenderStyle.ToTheRight);
             int bulletDesiredHeight = currentBullet.getDesiredHeightWithChildren();
             int y = nextItemTop - bulletDesiredHeight / 2;
-            currentBullet.setPosition(x, y);
+            currentBullet.setLayoutPosition(x, y);
             currentBullet.updateLayoutWithChildren(BulletRenderStyle.ToTheRight);
             nextItemTop -= bulletDesiredHeight + itemExternalPaddingHeight;
         }
@@ -214,8 +254,6 @@ public class Bullet implements Observer {
         return getWrappedContent().toString();
     }
 
-    
-    
     private void renderBackground(Canvas canvasToRenderOn) {
         Paint backgroundPaint = isSelected() ? getStyleScheme().getBackgroundHighlightedPaint() : getStyleScheme().getBackgroundPaint();
         Rect itemBounds = getItemBounds();
@@ -230,17 +268,16 @@ public class Bullet implements Observer {
             if (isHighlightLeft()) {
                 canvasToRenderOn.drawRect(position.x,
                         position.y,
-                        position.x + itemBounds.width()/2,
+                        position.x + itemBounds.width() / 2,
                         position.y + itemBounds.height(),
                         highlightPaint);
             }
-            if(isHighlightRight())
-            {
-                canvasToRenderOn.drawRect(position.x + itemBounds.width()/ 2,
+            if (isHighlightRight()) {
+                canvasToRenderOn.drawRect(position.x + itemBounds.width() / 2,
                         position.y,
-                        position.x + itemBounds.width() ,
+                        position.x + itemBounds.width(),
                         position.y + itemBounds.height(),
-                        highlightPaint);            
+                        highlightPaint);
             }
         }
     }
@@ -255,15 +292,6 @@ public class Bullet implements Observer {
                 position.x + itemBounds.width(),
                 position.y + itemBounds.height(),
                 borderPaint);
-    }
-
-    private void populateChildrenEntities() {
-        getChildren().clear();
-        for (MindMapItem childItem : getWrappedContent().getChildren()) {
-            Bullet childBullet = Bullet.createBulletWithChildren(childItem);
-            getChildren().add(childBullet);
-            childBullet.setParent(this);
-        }
     }
 
     private void renderText(Canvas canvasToRenderOn) {
@@ -388,6 +416,10 @@ public class Bullet implements Observer {
                 _parent.clearCachedPaths();
             }
         }
+    }
+
+    public void setLayoutPosition(int x, int y) {
+        setLayoutPosition(new Point(x, y));
     }
 
     public void setPosition(int x, int y) {
@@ -594,7 +626,7 @@ public class Bullet implements Observer {
                 }
             }
             if (!bulletFound) {
-                bulletsToAdd.add(Bullet.createBulletWithChildren(child));
+                bulletsToAdd.add(Bullet.createBullet(child));
             }
         }
         return bulletsToAdd;
@@ -650,8 +682,7 @@ public class Bullet implements Observer {
 
     public void setStyleSchemeType(StyleSchemeType styleSchemeType) {
         this._styleSchemeType = styleSchemeType;
-        switch(styleSchemeType)
-        {
+        switch (styleSchemeType) {
             case Normal:
                 setStyleScheme(_normalStyleScheme);
                 break;
@@ -661,5 +692,21 @@ public class Bullet implements Observer {
             default:
                 break;
         }
+    }
+
+    public Point getLayoutPosition() {
+        return _layoutPosition;
+    }
+
+    public void setLayoutPosition(Point layoutPosition) {
+        this._layoutPosition = layoutPosition;
+    }
+
+    public boolean isRunningMoveAnimation() {
+        return _runningMoveAnimation;
+    }
+
+    private void setRunningMoveAnimation(boolean runningMoveAnimation) {
+        this._runningMoveAnimation = runningMoveAnimation;
     }
 }

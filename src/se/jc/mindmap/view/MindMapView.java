@@ -4,18 +4,21 @@
  */
 package se.jc.mindmap.view;
 
+import android.animation.AnimatorSet;
+import android.animation.ValueAnimator;
 import android.graphics.PointF;
+import java.util.ArrayList;
+import java.util.List;
 import se.jc.library.graphics.ZoomView;
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 import se.jc.mindmap.model.MindMapItem;
 import se.jc.mindmap.view.component.Bullet;
+import se.jc.mindmap.view.component.BulletManager;
 import se.jc.mindmap.view.component.DropItemAction;
 import se.jc.mindmap.view.component.StyleSchemeType;
 
@@ -26,7 +29,6 @@ import se.jc.mindmap.view.component.StyleSchemeType;
 public class MindMapView extends ZoomView {
 
     private MindMapItem _mindMapRoot;
-    private Bullet _bulletRoot;
     private Bullet _selectedBullet;
     private Bullet _moveBullet;
     private PointF _moveBulletInitPosition;
@@ -34,12 +36,15 @@ public class MindMapView extends ZoomView {
     //Listeners
     private OnSelectedBulletChangeListener _selectedBulletChangeListener;
     private MindMapItemActionRequestListener _mindMapActionListener;
+    private BulletManager _bulletManager;
 
     public MindMapView(Context context, AttributeSet attrs) {
         super(context, attrs);
 
         generateMap();
-        setBulletRoot(Bullet.createBulletWithChildren(_mindMapRoot));
+
+        Bullet rootBullet = getBulletManager().createBulletWithChildren(_mindMapRoot);
+        setBulletRoot(rootBullet);
     }
 
     public MindMapView(Context context, AttributeSet attrs, int defStyle) {
@@ -48,7 +53,6 @@ public class MindMapView extends ZoomView {
 
     public MindMapView(Context context) {
         super(context);
-        generateMap();
         setOnLongClickListener(new OnLongClickListener() {
             public boolean onLongClick(View v) {
                 return true;
@@ -62,14 +66,16 @@ public class MindMapView extends ZoomView {
 
         int width = getWidth();
         int height = getHeight();
-        Rect itemBounds = _bulletRoot.getItemBounds();
+        Rect itemBounds = getBulletRoot().getItemBounds();
         int x = (width - itemBounds.width()) / 2;
         int y = (height - itemBounds.height()) / 2;
 
-        _bulletRoot.setPosition(x, y);
-        _bulletRoot.updateLayout();
+        getBulletRoot().setLayoutPosition(x, y);
+        getBulletRoot().updateLayout();
 
-        renderItemWithChildren(canvas, _bulletRoot);
+        handleMovementAnimations(2000);
+
+        renderItemWithChildren(canvas, getBulletRoot());
 
         Bullet moveBullet = getMoveBullet();
         if (moveBullet != null) {
@@ -79,10 +85,29 @@ public class MindMapView extends ZoomView {
         super.onDraw(canvas);
     }
 
+    private void handleMovementAnimations(int animationTime) {
+        List<ValueAnimator> allAnimators = new ArrayList<ValueAnimator>();
+        getBulletRoot().populateMovementAnimators(allAnimators, animationTime);
+        if (allAnimators.size() > 0) {
+            allAnimators.get(0).addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                public void onAnimationUpdate(ValueAnimator animation) {
+                    invalidate();
+                }
+            });
+            AnimatorSet animatorSet = new AnimatorSet();
+            for (ValueAnimator animator : allAnimators) {
+                animatorSet.play(animator);
+            }
+            animatorSet.start();
+        }
+
+    }
+
     private void renderItemWithChildren(Canvas canvasToRenderOn, Bullet itemToRender) {
         itemToRender.renderThisItem(canvasToRenderOn);
         itemToRender.renderChildConnections(canvasToRenderOn);
         for (Bullet child : itemToRender.getChildren()) {
+
             renderItemWithChildren(canvasToRenderOn, child);
         }
     }
@@ -129,7 +154,7 @@ public class MindMapView extends ZoomView {
     }
 
     private Bullet createMoveBullet(Bullet bulletToMove) {
-        Bullet moveBullet = Bullet.createBulletOnlyForItem(bulletToMove.getWrappedContent());
+        Bullet moveBullet = Bullet.createBullet(bulletToMove.getWrappedContent());
         moveBullet.setStyleSchemeType(StyleSchemeType.Ghost);
         return moveBullet;
     }
@@ -156,7 +181,6 @@ public class MindMapView extends ZoomView {
                         hoveredBullet.hoverItemLeave(moveBullet);
                         DropItemAction releaseAction = hoveredBullet.getDropItemAction(moveBullet, transformedPoint);
                         if (handleDropItemAction(hoveredBullet.getWrappedContent(), moveBullet.getWrappedContent(), releaseAction)) {
-                            
                         }
                     }
                     setMoveBullet(null, null);
@@ -196,14 +220,14 @@ public class MindMapView extends ZoomView {
     }
 
     protected Bullet getBulletRoot() {
-        return _bulletRoot;
+        return getBulletManager().getRootBullet();
     }
 
     /**
      * @param bulletRoot the _bulletRoot to set
      */
     protected void setBulletRoot(Bullet bulletRoot) {
-        this._bulletRoot = bulletRoot;
+        getBulletManager().setRootBullet(bulletRoot);
     }
 
     private void generateMap() {
@@ -316,5 +340,12 @@ public class MindMapView extends ZoomView {
 
     public void setMindMapActionListener(MindMapItemActionRequestListener mindMapActionListener) {
         this._mindMapActionListener = mindMapActionListener;
+    }
+
+    private BulletManager getBulletManager() {
+        if (_bulletManager == null) {
+            _bulletManager = new BulletManager();
+        }
+        return _bulletManager;
     }
 }

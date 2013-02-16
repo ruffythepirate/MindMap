@@ -14,7 +14,7 @@ import se.jc.library.util.SuspendableObservable;
  * @author Ruffy
  */
 public class MindMapItem extends SuspendableObservable {
-
+    
     private MindMapItem _parent;
     private String _text;
     private List<MindMapItem> _children;
