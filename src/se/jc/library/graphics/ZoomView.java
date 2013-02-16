@@ -16,6 +16,7 @@ import android.view.View;
 import java.util.Timer;
 import java.util.TimerTask;
 import se.jc.library.graphics.CanvasCamera;
+import se.jc.library.util.MathHelper;
 
 /**
  *
@@ -57,6 +58,14 @@ public class ZoomView extends View {
 
     }
 
+    public float getDragDistanceFromStart(MotionEvent event) {
+        PointF dragStart = getCurrentDragStart();
+        if (dragStart != null) {
+            return (float) MathHelper.GetDistance(dragStart, new PointF(event.getX(), event.getY()));
+        }
+        return 0.0f;
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent event) {
 
@@ -67,10 +76,15 @@ public class ZoomView extends View {
                 break;
             case MotionEvent.ACTION_MOVE:
                 if (getActionMode() == ACTION_MODE_DRAG) {
-                    stopLongpressTimer();
-                    setStartedDragging(true);
-                    updateCameraTranslation(event);
-                    invalidate();
+                    float distanceFromStart = getDragDistanceFromStart(event);
+                    if (distanceFromStart > 10.0f) {
+                        stopLongpressTimer();
+                        setStartedDragging(true);
+                    }
+                    if (isStartedDragging()) {
+                        updateCameraTranslation(event);
+                        invalidate();
+                    }
                 }
                 break;
 

@@ -277,8 +277,7 @@ public class MindMapView extends ZoomView {
     private void handleMoveItemHoverMove(PointF transformedPoint, Bullet moveBullet) {
         Bullet foundBullet = getBulletAtCoordinate(getBulletRoot(), transformedPoint);
         boolean isHoveringOtherItem = foundBullet != null
-                && foundBullet.getWrappedContent() != moveBullet.getWrappedContent()
-                && foundBullet != getHoveredItem();
+                && foundBullet.getWrappedContent() != moveBullet.getWrappedContent();
         if (isHoveringOtherItem) {
             setHoveredItem(foundBullet);
             foundBullet.hoverItem(moveBullet, transformedPoint);
