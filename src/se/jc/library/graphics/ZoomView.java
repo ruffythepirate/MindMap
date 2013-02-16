@@ -12,6 +12,8 @@ import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
+import java.util.Timer;
+import java.util.TimerTask;
 import se.jc.library.graphics.CanvasCamera;
 
 /**
@@ -25,6 +27,10 @@ public class ZoomView extends View {
     protected static int ACTION_MODE_ZOOM = 2;
     private static float MIN_ZOOM = 0.25f;
     private static float MAX_ZOOM = 4f;
+    protected static int LONGPRESS_TIME = 500;
+    private long _pressStartTimeInMilliSeconds;
+    private boolean _startedDragging;
+    private Timer _longpressTimer = new Timer();
     private ScaleGestureDetector _zoomDetector;
     private CanvasCamera _canvasCamera;
     private int _actionMode;
@@ -53,13 +59,13 @@ public class ZoomView extends View {
 
         switch (event.getAction() & MotionEvent.ACTION_MASK) {
             case MotionEvent.ACTION_DOWN:
-                setCurrentDragStart(event.getX(), event.getY());
-                initializeCameraDragStartTranslation();
+                handleTouchStart(event);
                 setActionMode(ACTION_MODE_DRAG);
                 break;
-
             case MotionEvent.ACTION_MOVE:
                 if (getActionMode() == ACTION_MODE_DRAG) {
+                    stopLongpressTimer();
+                    setStartedDragging(true);
                     updateCameraTranslation(event);
                     invalidate();
                 }
@@ -70,6 +76,12 @@ public class ZoomView extends View {
                 break;
 
             case MotionEvent.ACTION_UP:
+                stopLongpressTimer();
+                boolean clickIsFasterThanLongpress = System.currentTimeMillis() - getPressStartTimeInMilliSeconds()
+                        < LONGPRESS_TIME;
+                if (!isStartedDragging() && clickIsFasterThanLongpress) {
+                    onClickEvent(event);
+                }
                 setActionMode(ACTION_MODE_NONE);
                 break;
 
@@ -80,6 +92,12 @@ public class ZoomView extends View {
 
         _zoomDetector.onTouchEvent(event);
         return true;
+    }
+
+    public void onClickEvent(MotionEvent event) {
+    }
+
+    public void onLongClickEvent(PointF rawPoint) {
     }
 
     protected void prepareCanvasZoom(Canvas canvasToPrepare) {
@@ -105,13 +123,12 @@ public class ZoomView extends View {
     protected PointF getCurrentDragStart() {
         return _currentDragStart;
     }
-    
-    public PointF getAsAbsoluteCoordinate(float x, float y)
-    {
+
+    public PointF getAsAbsoluteCoordinate(float x, float y) {
         CanvasCamera camera = getCanvasCamera();
         return camera.getAsUntransformedCoordinates(x, y);
     }
-    
+
     protected void setCurrentDragStart(PointF currentDragStart) {
         this._currentDragStart = currentDragStart;
     }
@@ -146,6 +163,56 @@ public class ZoomView extends View {
         PointF startTranslation = getCameraDragStartTranslation();
         camera.setTranslation(dragTranslation.x + startTranslation.x,
                 dragTranslation.y + startTranslation.y);
+    }
+
+    private boolean isStartedDragging() {
+        return _startedDragging;
+    }
+
+    private void setStartedDragging(boolean startedDragging) {
+        this._startedDragging = startedDragging;
+    }
+
+    protected Timer getLongpressTimer() {
+        return _longpressTimer;
+    }
+
+    protected void setLongpressTimer(Timer longpressTimer) {
+        this._longpressTimer = longpressTimer;
+    }
+
+    private void startLongpressTimer(MotionEvent event) {
+        stopLongpressTimer();
+        Timer currentLongPressTimer = getLongpressTimer();
+        final PointF location = new PointF(event.getRawX(), event.getRawY());
+        currentLongPressTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                onLongClickEvent(location);
+            }
+        }, LONGPRESS_TIME);
+    }
+
+    private void stopLongpressTimer() {
+        Timer currentLongPressTimer = getLongpressTimer();
+        currentLongPressTimer.cancel();
+        setLongpressTimer(new Timer());
+    }
+
+    private void handleTouchStart(MotionEvent event) {
+        setPressStartTimeInMilliSeconds(System.currentTimeMillis());
+        setCurrentDragStart(event.getX(), event.getY());
+        initializeCameraDragStartTranslation();
+        setStartedDragging(false);
+        startLongpressTimer(event);
+    }
+
+    protected long getPressStartTimeInMilliSeconds() {
+        return _pressStartTimeInMilliSeconds;
+    }
+
+    protected void setPressStartTimeInMilliSeconds(long pressStartTimeInMilliSeconds) {
+        this._pressStartTimeInMilliSeconds = pressStartTimeInMilliSeconds;
     }
 
     private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {

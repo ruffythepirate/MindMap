@@ -43,7 +43,11 @@ public class MindMapView extends ZoomView {
     public MindMapView(Context context) {
         super(context);
         generateMap();
-
+        setOnLongClickListener(new OnLongClickListener() {
+            public boolean onLongClick(View v) {
+                return true;
+            }
+        });
     }
 
     @Override
@@ -57,10 +61,23 @@ public class MindMapView extends ZoomView {
         int y = (height - itemBounds.height()) / 2;
 
         _bulletRoot.setPosition(x, y);
-        _bulletRoot.render(canvas);
+        _bulletRoot.updateLayout();
+
+        renderItemWithChildren(canvas, _bulletRoot);
 
         super.onDraw(canvas);
     }
+    
+    private void renderItemWithChildren(Canvas canvasToRenderOn, Bullet itemToRender)
+    {
+        itemToRender.renderThisItem(canvasToRenderOn);
+        itemToRender.renderChildConnections(canvasToRenderOn);
+        for(Bullet child : itemToRender.getChildren())
+        {
+            renderItemWithChildren(canvasToRenderOn, child);
+        }
+    }
+    
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
@@ -68,22 +85,38 @@ public class MindMapView extends ZoomView {
     }
 
     @Override
+    public void onClickEvent(MotionEvent event) {
+        PointF transformedPoint = getAsAbsoluteCoordinate(event.getRawX(), event.getRawY());
+
+        Bullet foundBullet = getBulletAtCoordinate(getBulletRoot(), transformedPoint);
+        if (foundBullet != null
+                && foundBullet.getWrappedContent() != getSelectedMindMapItem()) {
+            setSelectedBullet(foundBullet);
+        } else {
+            setSelectedBullet(null);
+        }
+        super.onClickEvent(event);
+    }
+
+    @Override
+    /**
+     * Initializes dragging of a map point.
+     */
+    public void onLongClickEvent(PointF rawPoint) {
+        //Initializes dragging of a map point.
+        PointF transformedPoint = getAsAbsoluteCoordinate(rawPoint.x, rawPoint.y);
+        Bullet foundBullet = getBulletAtCoordinate(getBulletRoot(), transformedPoint);
+        if (foundBullet != null) {
+            //This is where the dragging starts.
+        }
+        super.onLongClickEvent(rawPoint);
+    }
+
+    @Override
     public boolean onTouchEvent(MotionEvent event) {
         switch (event.getAction() & MotionEvent.ACTION_MASK) {
             case MotionEvent.ACTION_DOWN:
-                PointF transformedPoint = getAsAbsoluteCoordinate(event.getRawX(), event.getRawY());
-
-                Bullet foundBullet = getBulletAtCoordinate(getBulletRoot(), transformedPoint);
-                if (foundBullet != null) {
-                    if (foundBullet.getWrappedContent() != getSelectedMindMapItem()) {
-                        setSelectedBullet(foundBullet);
-                    } else {
-                        setSelectedBullet(null);
-                    }
-                    return true;
-                }
                 break;
-
         }
         return super.onTouchEvent(event);
     }

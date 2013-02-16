@@ -77,36 +77,34 @@ public class Bullet implements Observer {
         populateChildrenEntities();
     }
 
-    public void render(Canvas canvasToRenderOn) {
-        renderWithChildren(canvasToRenderOn, BulletRenderStyle.Center);
+    public void updateLayout() {
+        updateLayoutWithChildren(BulletRenderStyle.Center);
     }
 
-    public void renderWithChildren(Canvas canvasToRenderOn, BulletRenderStyle renderStyle) {
-        renderThisItem(canvasToRenderOn);
+    public void updateLayoutWithChildren(BulletRenderStyle renderStyle) {
         switch (renderStyle) {
             case Center:
-                renderChildrenCenter(canvasToRenderOn);
+                updateLayoutChildrenCenter();
                 break;
             case ToTheLeft:
-                renderChildrenToLeft(canvasToRenderOn, 0, getChildren().size());
+                updateLayoutChildrenToLeft(0, getChildren().size());
                 break;
             case ToTheRight:
-                renderChildrenToRight(canvasToRenderOn, 0, getChildren().size());
+                updateLayoutChildrenToRight(0, getChildren().size());
                 break;
         }
-        renderChildConnections(canvasToRenderOn);
     }
 
-    private void renderChildConnections(Canvas canvasToRenderOn) {
+    public void renderChildConnections(Canvas canvasToRenderOn) {
         for (Bullet child : _children) {
             renderChildConnection(child, canvasToRenderOn);
         }
     }
 
-    public void renderChildrenCenter(Canvas canvasToRenderOn) {
+    public void updateLayoutChildrenCenter() {
         int itemsToTheRight = getOptimalNumberOfChildrenToRight();
-        renderChildrenToRight(canvasToRenderOn, 0, itemsToTheRight);
-        renderChildrenToLeft(canvasToRenderOn, itemsToTheRight, getChildren().size());
+        updateLayoutChildrenToRight(0, itemsToTheRight);
+        updateLayoutChildrenToLeft(itemsToTheRight, getChildren().size());
     }
 
     private int getChildItemsSize(int childStartIndex, int childStopIndex) {
@@ -131,7 +129,7 @@ public class Bullet implements Observer {
         return new PointF(position.x, position.y + itemBounds.height() / 2);
     }
 
-    public void renderChildrenToLeft(Canvas canvasToRenderOn, int startIndex, int stopIndex) {
+    public void updateLayoutChildrenToLeft(int startIndex, int stopIndex) {
         int itemExternalPaddingWidth = getRenderAttribute(AttributeExternalPaddingWidth, AttributeDefaultExternalPadding);
 
         int childItemsSize = getChildItemsSize(startIndex, stopIndex);
@@ -147,12 +145,12 @@ public class Bullet implements Observer {
             int bulletDesiredHeight = currentBullet.getDesiredHeightWithChildren();
             int y = nextItemTop - bulletDesiredHeight / 2;
             currentBullet.setPosition(endX - currentBullet.getItemBounds().width(), y);
-            currentBullet.renderWithChildren(canvasToRenderOn, BulletRenderStyle.ToTheLeft);
+            currentBullet.updateLayoutWithChildren(BulletRenderStyle.ToTheLeft);
             nextItemTop -= bulletDesiredHeight + itemExternalPaddingHeight;
         }
     }
 
-    public void renderChildrenToRight(Canvas canvasToRenderOn, int startIndex, int stopIndex) {
+    public void updateLayoutChildrenToRight(int startIndex, int stopIndex) {
         int itemRight = getPosition().x + getItemBounds().right;
         int itemExternalPaddingWidth = getRenderAttribute(AttributeExternalPaddingWidth, AttributeDefaultExternalPadding);
         int itemTop = getPosition().y + getItemBounds().top;
@@ -169,7 +167,7 @@ public class Bullet implements Observer {
             int bulletDesiredHeight = currentBullet.getDesiredHeightWithChildren();
             int y = nextItemTop - bulletDesiredHeight / 2;
             currentBullet.setPosition(x, y);
-            currentBullet.renderWithChildren(canvasToRenderOn, BulletRenderStyle.ToTheRight);
+            currentBullet.updateLayoutWithChildren(BulletRenderStyle.ToTheRight);
             nextItemTop -= bulletDesiredHeight + itemExternalPaddingHeight;
         }
     }
@@ -412,7 +410,7 @@ public class Bullet implements Observer {
         //1. We determine total height.
         int totalChildrenHeight = getDesiredHeightWithChildren();
         int desiredHeightOnEachSide = totalChildrenHeight / 2;
-        //2. We determine how many items to render to the right.
+        //2. We determine how many items to updateLayout to the right.
         int accumulatedHeight = 0;
         int itemsToTheRight = 0;
         int closestMatch = Integer.MAX_VALUE;
