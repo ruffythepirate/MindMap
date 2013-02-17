@@ -4,6 +4,7 @@
  */
 package se.jc.library.util;
 
+import java.util.BitSet;
 import java.util.Observable;
 
 /**
@@ -14,36 +15,45 @@ public class SuspendableObservable extends Observable {
 
     private boolean _needToNotify;
     private boolean _suspended;
+    private BitSet _updatedFields;
 
     @Override
     public void notifyObservers() {
-        notifyObservers(null);
-    }
-
-    @Override
-    public void notifyObservers(Object data) {
-
         if (!_suspended) {
-            super.notifyObservers(data);
+            super.notifyObservers(getUpdatedFields());
+            getUpdatedFields().clear();
             _needToNotify = false;
         } else {
             _needToNotify = true;
         }
     }
 
-    public void setChangeAndNotifyObservers(Object data) {
+    public void notifyObservers(int changedData) {
+        getUpdatedFields().set(changedData);
+        notifyObservers();
+    }
+
+    public void setChangeAndNotifyObservers(int changeBit) {
         setChanged();
-        notifyObservers(data);
+        notifyObservers(changeBit);
     }
 
     public void suspendBinding() {
         _suspended = true;
     }
 
-    public void resumeBinding(Object data) {
+    public void resumeBinding() {
         _suspended = false;
         if (_needToNotify) {
-            notifyObservers(data);
+            notifyObservers();
         }
+    }
+
+    protected BitSet getUpdatedFields() {
+        if(_updatedFields == null)
+        {
+            _updatedFields = new BitSet();
+        }
+        return _updatedFields;
     }
 }

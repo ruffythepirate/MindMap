@@ -4,6 +4,7 @@
  */
 package se.jc.mindmap.view;
 
+import android.animation.Animator;
 import android.animation.AnimatorSet;
 import android.animation.ValueAnimator;
 import android.graphics.PointF;
@@ -37,6 +38,7 @@ public class MindMapView extends ZoomView {
     private OnSelectedBulletChangeListener _selectedBulletChangeListener;
     private MindMapItemActionRequestListener _mindMapActionListener;
     private BulletManager _bulletManager;
+    private boolean _rootPositionInitialized;
 
     public MindMapView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -45,6 +47,8 @@ public class MindMapView extends ZoomView {
 
         Bullet rootBullet = getBulletManager().getOrCreateBullet(_mindMapRoot);
         setBulletRoot(rootBullet);
+
+
     }
 
     public MindMapView(Context context, AttributeSet attrs, int defStyle) {
@@ -61,20 +65,21 @@ public class MindMapView extends ZoomView {
     }
 
     @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        if (!_rootPositionInitialized) {
+            initializeRootPosition();
+            _rootPositionInitialized = true;
+        }
+    }
+
+    @Override
     protected void onDraw(Canvas canvas) {
         prepareCanvasZoom(canvas);
 
-        int width = getWidth();
-        int height = getHeight();
-        Rect itemBounds = getBulletRoot().getItemBounds();
-        int x = (width - itemBounds.width()) / 2;
-        int y = (height - itemBounds.height()) / 2;
-
-        getBulletRoot().setLayoutPosition(x, y);
         getBulletRoot().updateLayout();
 
         handleMovementAnimations(2000);
-
         renderItemWithChildren(canvas, getBulletRoot());
 
         Bullet moveBullet = getMoveBullet();
@@ -94,10 +99,25 @@ public class MindMapView extends ZoomView {
                     invalidate();
                 }
             });
+
             AnimatorSet animatorSet = new AnimatorSet();
             for (ValueAnimator animator : allAnimators) {
                 animatorSet.play(animator);
             }
+            animatorSet.addListener(new Animator.AnimatorListener() {
+                public void onAnimationStart(Animator animation) {
+                }
+
+                public void onAnimationEnd(Animator animation) {
+                    invalidate();
+                }
+
+                public void onAnimationCancel(Animator animation) {
+                }
+
+                public void onAnimationRepeat(Animator animation) {
+                }
+            });
             animatorSet.start();
         }
 
@@ -300,15 +320,20 @@ public class MindMapView extends ZoomView {
 
     private void handleMoveItemHoverMove(PointF transformedPoint, Bullet moveBullet) {
         Bullet foundBullet = getBulletAtCoordinate(getBulletRoot(), transformedPoint);
+        boolean hasLeftItem = getHoveredItem() != null && foundBullet != getHoveredItem();
+        if (hasLeftItem) {
+            getHoveredItem().hoverItemLeave(moveBullet);
+        }
+
         boolean isHoveringOtherItem = foundBullet != null
                 && foundBullet.getWrappedContent() != moveBullet.getWrappedContent();
         if (isHoveringOtherItem) {
             setHoveredItem(foundBullet);
             foundBullet.hoverItem(moveBullet, transformedPoint);
         } else if (getHoveredItem() != null) {
-            getHoveredItem().hoverItemLeave(moveBullet);
             setHoveredItem(null);
         }
+
     }
 
     private void updateMoveBulletPosition(Bullet moveBullet, PointF rawPoint) {
@@ -347,5 +372,15 @@ public class MindMapView extends ZoomView {
             _bulletManager = new BulletManager();
         }
         return _bulletManager;
+    }
+
+    private void initializeRootPosition() {
+        int width = getWidth();
+        int height = getHeight();
+        Rect itemBounds = getBulletRoot().getItemBounds();
+        int x = (width - itemBounds.width()) / 2;
+        int y = (height - itemBounds.height()) / 2;
+
+        getBulletRoot().setLayoutPosition(x, y);
     }
 }

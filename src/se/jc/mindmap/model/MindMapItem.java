@@ -15,6 +15,10 @@ import se.jc.library.util.SuspendableObservable;
  */
 public class MindMapItem extends SuspendableObservable {
     
+    public static final int UPDATED_TEXT = 1;
+    public static final int UPDATED_CHILDREN = 2;
+    public static final int UPDATED_DELETED = 3;
+    
     private MindMapItem _parent;
     private String _text;
     private List<MindMapItem> _children;
@@ -44,20 +48,20 @@ public class MindMapItem extends SuspendableObservable {
 
     public void removeChild(MindMapItem childToRemove) {
         _children.remove(childToRemove);
-        setChangeAndNotifyObservers(this);
+        setChangeAndNotifyObservers(UPDATED_CHILDREN);
     }
 
     public void addChild(int index, MindMapItem childToAdd) {
         _children.add(index, childToAdd);
         childToAdd.setParent(this);
-        setChangeAndNotifyObservers(this);
+        setChangeAndNotifyObservers(UPDATED_CHILDREN);
     }
 
     public void addChild(MindMapItem childToAdd) {
 
         _children.add(childToAdd);
         childToAdd.setParent(this);
-        setChangeAndNotifyObservers(this);
+        setChangeAndNotifyObservers(UPDATED_CHILDREN);
     }
 
     public void addChild(String childText) {
@@ -70,7 +74,6 @@ public class MindMapItem extends SuspendableObservable {
             MindMapItem childToAdd = new MindMapItem(childText);
             int currentIndex = _parent.getChildIndex(this);
             _parent.addChild(currentIndex + 1, childToAdd);
-            setChangeAndNotifyObservers(this);
         }
     }
 
@@ -86,7 +89,7 @@ public class MindMapItem extends SuspendableObservable {
                 _children.add(child);
             }
         }
-        setChangeAndNotifyObservers(this);
+        setChangeAndNotifyObservers(UPDATED_CHILDREN);
     }
 
     public List<MindMapItem> copyChildren() {
@@ -124,7 +127,21 @@ public class MindMapItem extends SuspendableObservable {
     public void setText(String text) {
         this._text = text;
 
-        setChangeAndNotifyObservers(this);
+        setChangeAndNotifyObservers(UPDATED_TEXT);
+    }
+    
+    public void notifyDelete()
+    {
+        setChangeAndNotifyObservers(UPDATED_DELETED);    
+    }
+    
+    public void notifyDeleteWithChildren()
+    {
+        for(MindMapItem child : getChildren())
+        {
+            child.notifyDeleteWithChildren();
+        }
+        setChangeAndNotifyObservers(UPDATED_DELETED);
     }
 
     public void deleteOne() {
@@ -134,13 +151,15 @@ public class MindMapItem extends SuspendableObservable {
                 _parent.addChild(0, child);
             }
             _parent.removeChild(this);
-            _parent.resumeBinding(_parent);
+            notifyDelete();
+            _parent.resumeBinding();
         }
     }
 
     public void deleteBranch() {
         if (_parent != null) {
             _parent.removeChild(this);
+            notifyDeleteWithChildren();
         }
     }
 
@@ -167,8 +186,8 @@ public class MindMapItem extends SuspendableObservable {
         } else {
             itemTwo.clearParent();
         }
-        itemOne.resumeBinding(itemOne);
-        itemTwo.resumeBinding(itemTwo);
+        itemOne.resumeBinding();
+        itemTwo.resumeBinding();
     }
 
     @Override

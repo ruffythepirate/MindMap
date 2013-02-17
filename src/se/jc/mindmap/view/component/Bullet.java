@@ -494,7 +494,8 @@ public class Bullet implements Observer {
 
     private void renderChildConnection(Bullet child, Canvas canvasToRenderOn) {
 
-        Path path = getChildPath(child);
+        Path path = calculateBezierPath(child);
+//        Path path = getChildPath(child);
         renderConnectionPath(path, canvasToRenderOn);
     }
 
@@ -557,7 +558,9 @@ public class Bullet implements Observer {
     }
 
     private void clearCachedPaths() {
-        _cachedPaths.clear();
+        if (_cachedPaths.size() > 0) {
+            _cachedPaths.clear();
+        }
     }
 
     public void update(Observable observable, Object data) {
