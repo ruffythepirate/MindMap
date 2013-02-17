@@ -43,7 +43,7 @@ public class MindMapView extends ZoomView {
 
         generateMap();
 
-        Bullet rootBullet = getBulletManager().createBulletWithChildren(_mindMapRoot);
+        Bullet rootBullet = getBulletManager().getOrCreateBullet(_mindMapRoot);
         setBulletRoot(rootBullet);
     }
 
