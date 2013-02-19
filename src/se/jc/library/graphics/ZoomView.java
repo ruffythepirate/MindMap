@@ -31,6 +31,7 @@ public class ZoomView extends View {
     private static float MIN_ZOOM = 0.25f;
     private static float MAX_ZOOM = 4f;
     protected static int LONGPRESS_TIME = 500;
+    
     private long _pressStartTimeInMilliSeconds;
     private boolean _startedDragging;
     private Timer _longpressTimer = new Timer();
@@ -87,7 +88,6 @@ public class ZoomView extends View {
                     }
                 }
                 break;
-
             case MotionEvent.ACTION_POINTER_DOWN:
                 setActionMode(ACTION_MODE_ZOOM);
                 break;
@@ -229,10 +229,10 @@ public class ZoomView extends View {
     }
 
     private void handleTouchStart(MotionEvent event) {
-        setPressStartTimeInMilliSeconds(System.currentTimeMillis());
         setCurrentDragStart(event.getX(), event.getY());
         initializeCameraDragStartTranslation();
         setStartedDragging(false);
+        setPressStartTimeInMilliSeconds(System.currentTimeMillis());
         startLongpressTimer(event);
     }
 

@@ -14,11 +14,10 @@ import se.jc.library.util.SuspendableObservable;
  * @author Ruffy
  */
 public class MindMapItem extends SuspendableObservable {
-    
+
     public static final int UPDATED_TEXT = 1;
     public static final int UPDATED_CHILDREN = 2;
     public static final int UPDATED_DELETED = 3;
-    
     private MindMapItem _parent;
     private String _text;
     private List<MindMapItem> _children;
@@ -58,10 +57,11 @@ public class MindMapItem extends SuspendableObservable {
     }
 
     public void addChild(MindMapItem childToAdd) {
-
-        _children.add(childToAdd);
         childToAdd.setParent(this);
-        setChangeAndNotifyObservers(UPDATED_CHILDREN);
+        if (!_children.contains(childToAdd)) {
+            _children.add(childToAdd);
+            setChangeAndNotifyObservers(UPDATED_CHILDREN);
+        }
     }
 
     public void addChild(String childText) {
@@ -129,16 +129,13 @@ public class MindMapItem extends SuspendableObservable {
 
         setChangeAndNotifyObservers(UPDATED_TEXT);
     }
-    
-    public void notifyDelete()
-    {
-        setChangeAndNotifyObservers(UPDATED_DELETED);    
+
+    public void notifyDelete() {
+        setChangeAndNotifyObservers(UPDATED_DELETED);
     }
-    
-    public void notifyDeleteWithChildren()
-    {
-        for(MindMapItem child : getChildren())
-        {
+
+    public void notifyDeleteWithChildren() {
+        for (MindMapItem child : getChildren()) {
             child.notifyDeleteWithChildren();
         }
         setChangeAndNotifyObservers(UPDATED_DELETED);
@@ -194,6 +191,4 @@ public class MindMapItem extends SuspendableObservable {
     public String toString() {
         return getText() + " " + getChildren().size();
     }
-    
-    
 }
